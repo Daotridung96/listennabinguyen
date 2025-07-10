@@ -75,18 +75,9 @@
         let userId = 'anonymous'; // Default to anonymous
         let authReady = false; // Flag to ensure Firestore operations wait for auth
 
-        // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIGURATION AND APP ID
-        // You can find your Firebase config in your Firebase project settings:
-        // Project settings -> Your apps -> Web app -> Firebase SDK snippet -> Config
-        const firebaseConfig = {
-             apiKey: "AIzaSyDTklykLRzKSkSu_1xKxuCjzVNmpzTs4M8",
-             authDomain: "listennabinguyen.firebaseapp.com",
-             projectId: "listennabinguyen",
-             storageBucket: "listennabinguyen.firebasestorage.app",
-             messagingSenderId: "607843224399",
-             appId: "1:607843224399:web:201fbfbdef5089e273933a"
-        };
-        const appId = "listennabinguyen-app"; // This is the Canvas app ID, which you can set to anything unique for your data
+        // IMPORTANT: Use the global __firebase_config and __app_id variables
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // Helper function to convert File to Base64
         function fileToBase64(file) {
@@ -252,7 +243,7 @@
                         audioFileNameDisplay.textContent = '';
                         showMessage(messageArea, 'Bài tập đã được thêm thành công!', 'bg-blue-100 border-blue-400 text-blue-700');
                     } else {
-                        showMessage(messageArea, 'Lỗi khi thêm bài tập. Vui lòng thử lại.', 'bg-red-100 border-red-400 text-red-700');
+                        // Error message is handled within addExerciseToFirestore now
                     }
                 } catch (error) {
                     console.error("Error processing audio file or adding exercise:", error);
@@ -591,112 +582,125 @@
                         showMessage(messageArea, `Bài tập đã được xóa thành công.`, 'bg-blue-100 border-blue-400 text-blue-700');
                     }
                 } else {
-                    const messageArea = document.getElementById('teacher-message-area');
-                    if (messageArea) {
-                        showMessage(messageArea, 'Lỗi khi xóa bài tập. Vui lòng thử lại.', 'bg-red-100 border-red-400 text-red-700');
-                    }
+                    // Error message is handled within deleteExerciseFromFirestore now
                 }
             }
         });
 
         // Firebase setup and data loading
         async function setupFirebase() {
-            // Check if Firebase config is available
-            // If running outside Canvas, use the hardcoded firebaseConfig
-            // If running inside Canvas, __firebase_config will be defined
-            const configToUse = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
-            const appIdToUse = typeof __app_id !== 'undefined' ? __app_id : appId; // Use Canvas app ID if available, else hardcoded
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-            if (!configToUse || !configToUse.projectId) {
-                console.error("Firebase config not found or incomplete. Cannot initialize Firebase.");
-                document.getElementById('app-main-content').innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi: Không thể kết nối Firebase. Vui lòng kiểm tra cấu hình.</div>';
-                return;
-            }
-
-            // Initialize Firebase app
-            app = initializeApp(configToUse);
-            db = getFirestore(app);
-            auth = getAuth(app);
-
-            // Authenticate user
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    console.log("Firebase authenticated. User ID:", userId);
+                // Authenticate user
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    // Sign in anonymously if no user is logged in
-                    try {
-                        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                            userId = auth.currentUser.uid;
-                            console.log("Signed in with custom token. User ID:", userId);
-                        } else {
-                            await signInAnonymously(auth);
-                            userId = auth.currentUser.uid;
-                            console.log("Signed in anonymously. User ID:", userId);
-                        }
-                    } catch (error) {
-                        console.error("Firebase authentication error:", error);
-                        document.getElementById('app-main-content').innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi xác thực Firebase. Vui lòng thử lại.</div>';
-                        return;
-                    }
+                    await signInAnonymously(auth);
                 }
 
-                // Set authReady to true and start listening for data
-                authReady = true;
-                setupFirestoreListeners(appIdToUse, userId);
-                renderView(); // Initial render after auth is ready
-            });
-        }
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Firebase authenticated. User ID:", userId);
+                        authReady = true;
+                        // Start listening to Firestore data only after authentication is ready
+                        listenToExercises();
+                        renderView(); // Initial render after auth is ready
+                    } else {
+                        userId = 'anonymous'; // Fallback if somehow not authenticated
+                        console.log("Firebase not authenticated. Using anonymous ID.");
+                        authReady = true;
+                        listenToExercises(); // Still listen, but data might be restricted by rules
+                        renderView(); // Initial render after auth is ready
+                    }
+                });
 
-        // Setup Firestore real-time listeners
-        function setupFirestoreListeners(currentAppId, currentUserId) {
-            // Collection path for user-specific exercises
-            const exercisesColRef = collection(db, `artifacts/${currentAppId}/users/${currentUserId}/exercises`);
-
-            // Listen for real-time updates
-            onSnapshot(exercisesColRef, (snapshot) => {
-                const updatedExercises = snapshot.docs.map(doc => ({
-                    id: doc.id, // Firestore document ID
-                    ...doc.data() // All other fields
-                }));
-                exercises = updatedExercises;
-                console.log("Exercises loaded/updated from Firestore:", exercises);
-                renderView(); // Re-render the current view with updated data
-            }, (error) => {
-                console.error("Error fetching exercises from Firestore:", error);
+            } catch (error) {
+                console.error("Error initializing Firebase or authenticating:", error);
                 const mainContent = document.getElementById('app-main-content');
-                showMessage(mainContent, 'Lỗi khi tải bài tập từ Firestore. Vui lòng tải lại trang.', 'bg-red-100 border-red-400 text-red-700');
+                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi tải ứng dụng. Vui lòng thử lại sau.</div>';
+            }
+        }
+
+        // Firestore functions
+        async function addExerciseToFirestore(exerciseData) {
+            if (!authReady) {
+                console.error("Firestore not ready: Authentication not complete.");
+                return false;
+            }
+
+            const messageArea = document.getElementById('teacher-message-area');
+
+            // Check Base64 string size before attempting to save
+            const MAX_BASE64_SIZE = 900 * 1024; // Approximately 0.9 MB for the Base64 string to stay within 1MB document limit
+            if (exerciseData.audioBase64 && exerciseData.audioBase64.length > MAX_BASE64_SIZE) {
+                showMessage(messageArea, 'Kích thước file âm thanh quá lớn. Vui lòng tải lên file nhỏ hơn (dưới 0.7MB).', 'bg-red-100 border-red-400 text-red-700');
+                console.error("Audio file Base64 string too large:", exerciseData.audioBase64.length, "bytes. Max allowed:", MAX_BASE64_SIZE, "bytes.");
+                return false;
+            }
+
+            try {
+                // Store in public collection
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/exercises`), exerciseData);
+                console.log("Document written with ID: ", docRef.id);
+                return true;
+            } catch (e) {
+                console.error("Error adding document to Firestore: ", e);
+                // Check for specific Firestore errors related to size if possible, though general catch is often enough
+                if (e.code === 'resource-exhausted') { // This specific error code might not be directly exposed for document size
+                    showMessage(messageArea, 'Lỗi: Kích thước bài tập quá lớn. Vui lòng giảm kích thước file âm thanh hoặc nội dung đáp án.', 'bg-red-100 border-red-400 text-red-700');
+                } else {
+                    showMessage(messageArea, `Lỗi khi thêm bài tập: ${e.message}. Vui lòng thử lại.`, 'bg-red-100 border-red-400 text-red-700');
+                }
+                return false;
+            }
+        }
+
+        async function deleteExerciseFromFirestore(exerciseId) {
+            if (!authReady) {
+                console.error("Firestore not ready: Authentication not complete.");
+                return false;
+            }
+            const messageArea = document.getElementById('teacher-message-area');
+            try {
+                // Delete from public collection
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/exercises`, exerciseId));
+                console.log("Document successfully deleted!");
+                return true;
+            } catch (e) {
+                console.error("Error removing document: ", e);
+                showMessage(messageArea, `Lỗi khi xóa bài tập: ${e.message}. Vui lòng thử lại.`, 'bg-red-100 border-red-400 text-red-700');
+                return false;
+            }
+        }
+
+        function listenToExercises() {
+            if (!authReady) {
+                console.error("Firestore not ready: Cannot listen to exercises.");
+                return;
+            }
+            // Listen to public exercises collection
+            onSnapshot(collection(db, `artifacts/${appId}/public/data/exercises`), (snapshot) => {
+                const fetchedExercises = [];
+                snapshot.forEach((doc) => {
+                    fetchedExercises.push({ id: doc.id, ...doc.data() });
+                });
+                exercises = fetchedExercises;
+                console.log("Exercises updated:", exercises);
+                // Re-render the current view to reflect updated data
+                renderView();
+            }, (error) => {
+                console.error("Error listening to exercises:", error);
+                const mainContent = document.getElementById('app-main-content');
+                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi tải bài tập. Vui lòng kiểm tra kết nối internet.</div>';
             });
         }
 
-        // Function to add exercise to Firestore
-        async function addExerciseToFirestore(exerciseData) {
-            try {
-                const exercisesColRef = collection(db, `artifacts/${appId}/users/${userId}/exercises`);
-                await addDoc(exercisesColRef, exerciseData);
-                return true;
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                return false;
-            }
-        }
-
-        // Function to delete exercise from Firestore
-        async function deleteExerciseFromFirestore(exerciseId) {
-            try {
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/exercises`, exerciseId);
-                await deleteDoc(docRef);
-                return true;
-            } catch (e) {
-                console.error("Error deleting document: ", e);
-                return false;
-            }
-        }
-
-        // Initial call to setup Firebase when the DOM is fully loaded
-        document.addEventListener('DOMContentLoaded', setupFirebase);
+        // Initialize Firebase when the window loads
+        window.onload = setupFirebase;
     </script>
 </body>
 </html>
