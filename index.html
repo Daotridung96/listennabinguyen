@@ -1,455 +1,545 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Listen and Write English</title>
-  <style>
-    body {
-      font-family: 'Inter', Arial, sans-serif;
-      background: linear-gradient(135deg, #e0e7ff, #f3e8ff);
-      min-height: 100vh;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(80, 80, 160, 0.07);
-      border-radius: 18px;
-      padding: 24px 12px;
-      margin: 24px auto 36px auto;
-      max-width: 900px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-    }
-    header h1 {
-      font-size: 2.3rem;
-      font-weight: bold;
-      color: #1e293b;
-      margin: 0 0 12px 0;
-    }
-    nav {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    nav button {
-      padding: 10px 28px;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      color: #fff;
-      background: #2563eb;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
-      margin-bottom: 4px;
-    }
-    nav button.teacher { background: #22c55e;}
-    nav button.student { background: #8b5cf6;}
-    nav button.active,
-    nav button:hover {
-      transform: scale(1.07);
-      filter: brightness(0.92);
-    }
-    main {
-      max-width: 900px;
-      margin: auto;
-    }
-    .card {
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 2px 12px rgba(80,80,160,0.09);
-      padding: 32px 24px;
-      margin-bottom: 36px;
-    }
-    .card h2 {
-      font-size: 2rem;
-      margin-bottom: 16px;
-      color: #1e293b;
-      font-weight: bold;
-    }
-    .flex-row { display: flex; gap: 24px; }
-    .flex-col { display: flex; flex-direction: column; gap: 18px; }
-    .button-big {
-      padding: 16px 40px;
-      font-size: 1.2rem;
-      border-radius: 12px;
-      font-weight: 700;
-      border: none;
-      margin: 6px 0;
-      cursor: pointer;
-      color: #fff;
-      background: #22c55e;
-      transition: background .2s, transform .2s;
-    }
-    .button-big.student { background: #8b5cf6;}
-    .button-big:hover { transform: scale(1.05);}
-    .section-title {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: #334155;
-      margin-bottom: 10px;
-    }
-    .input-block { margin-bottom: 16px; }
-    label { font-weight: 600; color: #334155;}
-    input[type="text"], textarea {
-      width: 100%;
-      padding: 10px 13px;
-      border-radius: 7px;
-      border: 1px solid #a5b4fc;
-      font-size: 1rem;
-      margin-top: 5px;
-      margin-bottom: 8px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    textarea { min-height: 80px; }
-    input[type="file"] { padding: 6px 0;}
-    .audio-list { margin: 0; padding: 0; list-style: none;}
-    .audio-list li { margin-bottom: 12px; }
-    .audio-folder {
-      background: #f1f5f9;
-      border-radius: 10px;
-      padding: 18px 14px;
-      margin-bottom: 16px;
-      border: 1px solid #bfdbfe;
-    }
-    .audio-folder h3 {
-      margin: 0 0 8px 0;
-      font-size: 1.1rem;
-      color: #6366f1;
-      font-weight: 700;
-    }
-    .audio-folder ul { padding-left: 18px;}
-    .result-highlight { font-size: 1.07em; line-height: 2;}
-    .correct { color: #222; }
-    .incorrect { color: #dc2626; font-weight: bold;}
-    .missing { color: #eab308; font-weight: bold; text-decoration: underline;}
-    .alert { background: #e0e7ff; color: #2563eb; border-left: 5px solid #818cf8; padding: 8px 14px; border-radius: 7px; margin-bottom: 12px;}
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(31,41,55,0.55);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 90;
-    }
-    .modal { background: #fff; padding: 28px 24px; border-radius: 15px; box-shadow: 0 4px 32px rgba(0,0,0,0.09);}
-    @media (max-width: 600px) {
-      header, main, .card { padding: 13px !important;}
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen and Write English</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font import */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
 </head>
-<body>
-  <header>
-    <h1>Listen and write English</h1>
-    <nav>
-      <button id="homeBtn" class="active">Trang Chủ</button>
-      <button id="teacherBtn" class="teacher">Giáo Viên</button>
-      <button id="studentBtn" class="student">Học Sinh</button>
-    </nav>
-  </header>
-  <main id="app">
-    <!-- JavaScript will render content here -->
-  </main>
-  <script>
-    // --- Data Storage ---
-    let exercises = []; // {id, folder, audioContent, answerKey, audioFileUrl}
-    let selectedExercise = null;
-    let currentView = 'home';
+<body class="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 p-4">
 
-    // --- Helper Functions ---
-    function render() {
-      const app = document.getElementById('app');
-      app.innerHTML = '';
-      if(currentView === 'home') renderHome(app);
-      if(currentView === 'teacher') renderTeacherDashboard(app);
-      if(currentView === 'student') {
-        if(selectedExercise) renderExercisePlayer(app, selectedExercise);
-        else renderStudentDashboard(app);
-      }
-    }
-    function resetSelection() { selectedExercise = null; }
+    <header class="bg-white shadow-lg rounded-xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-4 md:mb-0">
+            Listen and write English
+        </h1>
+        <nav class="space-x-2 sm:space-x-4 flex flex-wrap justify-center">
+            <button id="home-nav-btn" class="px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105 text-sm sm:text-base mb-2 sm:mb-0">
+                Trang Chủ
+            </button>
+            <button id="teacher-nav-btn" class="px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition duration-300 transform hover:scale-105 text-sm sm:text-base mb-2 sm:mb-0">
+                Giáo Viên
+            </button>
+            <button id="student-nav-btn" class="px-4 py-2 sm:px-6 sm:py-3 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition duration-300 transform hover:scale-105 text-sm sm:text-base">
+                Học Sinh
+            </button>
+        </nav>
+    </header>
 
-    // --- Navigation ---
-    document.getElementById('homeBtn').onclick = () => { currentView='home'; resetSelection(); setNavActive('homeBtn'); render(); };
-    document.getElementById('teacherBtn').onclick = () => { currentView='teacher'; resetSelection(); setNavActive('teacherBtn'); render(); };
-    document.getElementById('studentBtn').onclick = () => { currentView='student'; resetSelection(); setNavActive('studentBtn'); render(); };
+    <main id="app-main-content" class="container mx-auto">
+        <!-- Content will be dynamically loaded here by JavaScript -->
+    </main>
 
-    function setNavActive(id) {
-      ['homeBtn','teacherBtn','studentBtn'].forEach(btnId => {
-        document.getElementById(btnId).classList.toggle('active', btnId===id);
-      });
-    }
-
-    // --- Home View ---
-    function renderHome(app) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <h2>Chào mừng bạn!</h2>
-        <p class="section-title">Chọn vai trò của bạn để bắt đầu.</p>
-        <div class="flex-row" style="justify-content:center;">
-          <button class="button-big" onclick="currentView='teacher';setNavActive('teacherBtn');resetSelection();render();">Tôi là Giáo Viên</button>
-          <button class="button-big student" onclick="currentView='student';setNavActive('studentBtn');resetSelection();render();">Tôi là Học Sinh</button>
-        </div>
-      `;
-      app.appendChild(card);
-    }
-
-    // --- Teacher Dashboard ---
-    function renderTeacherDashboard(app) {
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      // Add Exercise Form
-      let msgDiv = document.createElement('div');
-      msgDiv.id = 'teacherMsg';
-
-      const form = document.createElement('form');
-      form.innerHTML = `
-        <div class="section-title" style="margin-bottom:13px;">Tải Lên Bài Nghe Mới</div>
-        <div class="input-block">
-          <label>Thư mục/Chủ đề:</label>
-          <input type="text" id="folderInput" placeholder="Ví dụ: Bài 1, Chủ đề Gia đình..." />
-        </div>
-        <div class="input-block">
-          <label>Tải File Ghi Âm (.mp3, .wav...):</label>
-          <input type="file" id="audioFileInput" accept="audio/*" />
-          <div id="audioFileName" style="font-size:0.95em;color:#64748b;"></div>
-        </div>
-        <div class="input-block">
-          <label>Đáp án chính xác:</label>
-          <textarea id="answerKeyInput" placeholder="Nhập đáp án chính xác của bài nghe tại đây..."></textarea>
-        </div>
-        <button type="submit" class="button-big" style="width:100%;">Thêm Bài Tập</button>
-      `;
-      // Show selected file name
-      form.querySelector('#audioFileInput').onchange = function(e) {
-        const file = e.target.files[0];
-        document.getElementById('audioFileName').innerText = file ? "File đã chọn: " + file.name : "";
-      };
-      form.onsubmit = function(e){
-        e.preventDefault();
-        const folder = form.querySelector('#folderInput').value.trim();
-        const answerKey = form.querySelector('#answerKeyInput').value.trim();
-        const audioFile = form.querySelector('#audioFileInput').files[0];
-        if(!folder || !answerKey || !audioFile){
-          msgDiv.innerHTML = '<div class="alert">Vui lòng điền đầy đủ các trường: Đáp án, Thư mục và file ghi âm.</div>'; return;
-        }
-        const id = 'ex'+(exercises.length+1);
-        const audioFileUrl = URL.createObjectURL(audioFile);
-        exercises.push({ id, folder, audioContent: '', answerKey, audioFileUrl });
-        msgDiv.innerHTML = '<div class="alert">Bài tập đã được thêm thành công!</div>';
-        setTimeout(()=>{ msgDiv.innerHTML=''; },2600);
-        form.reset();
-        document.getElementById('audioFileName').innerText = '';
-        render();
-      };
-
-      card.appendChild(msgDiv);
-      card.appendChild(form);
-
-      // List Uploaded Exercises
-      card.appendChild(document.createElement('hr'));
-      const folders = [...new Set(exercises.map(ex=>ex.folder))];
-      const title = document.createElement('div');
-      title.className = 'section-title';
-      title.innerText = "Các Bài Tập Đã Tải Lên";
-      card.appendChild(title);
-
-      if(folders.length === 0) {
-        card.innerHTML += `<p style="color:#64748b;">Chưa có bài tập nào được tải lên.</p>`;
-      } else {
-        folders.forEach(folderName => {
-          const folderDiv = document.createElement('div');
-          folderDiv.className = 'audio-folder';
-          folderDiv.innerHTML = `<h3>${folderName}</h3>`;
-          const ul = document.createElement('ul');
-          ul.className = 'audio-list';
-          exercises.filter(ex=>ex.folder===folderName).forEach(ex=>{
-            const li = document.createElement('li');
-            li.innerHTML = `
-              Bài tập ID: <b>${ex.id}</b> ${ex.audioFileUrl ? '<span style="font-size:0.95em;color:#64748b;">(Đã có file audio)</span>' : ''}
-              <button style="margin-left:14px;background:#ef4444;" onclick="showDeleteModal('${ex.id}')">Xóa</button>
-            `;
-            ul.appendChild(li);
-          });
-          folderDiv.appendChild(ul);
-          card.appendChild(folderDiv);
-        });
-      }
-      app.appendChild(card);
-    }
-
-    // --- Student Dashboard ---
-    function renderStudentDashboard(app) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `<h2>Chọn Bài Tập (Học Sinh)</h2>`;
-      const folders = [...new Set(exercises.map(ex=>ex.folder))];
-      if(folders.length === 0) {
-        card.innerHTML += `<p style="color:#64748b;">Chưa có bài tập nào. Vui lòng đợi giáo viên tải lên.</p>`;
-      } else {
-        folders.forEach(folderName => {
-          const folderDiv = document.createElement('div');
-          folderDiv.className = 'audio-folder';
-          folderDiv.innerHTML = `<h3>${folderName}</h3>`;
-          const ul = document.createElement('ul');
-          ul.className = 'audio-list';
-          exercises.filter(ex=>ex.folder===folderName).forEach(ex=>{
-            const li = document.createElement('li');
-            li.innerHTML = `<button style="color:#3b82f6;font-weight:500;background:none;border:none;cursor:pointer;" onclick="selectExercise('${ex.id}')">Bài tập ID: ${ex.id}</button>`;
-            ul.appendChild(li);
-          });
-          folderDiv.appendChild(ul);
-          card.appendChild(folderDiv);
-        });
-      }
-      app.appendChild(card);
-    }
-
-    // --- Exercise Player ---
-    function renderExercisePlayer(app, exercise) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <button onclick="resetSelection();render();" style="background:#f1f5f9;color:#334155;padding:6px 16px;border-radius:8px;border:none;margin-bottom:22px;">&larr; Quay lại</button>
-        <h2>Bài Tập: ${exercise.folder} - ID: ${exercise.id}</h2>
-        <div style="margin-top:12px;margin-bottom:30px;padding:12px 16px;background:#f1f5f9;border-radius:11px;">
-          <div class="section-title" style="color:#6366f1;">Nội dung bài nghe:</div>
-          ${exercise.audioFileUrl ? `
-            <audio controls style="width:95%;margin:10px 0 0 0;"><source src="${exercise.audioFileUrl}" type="audio/mpeg">Trình duyệt không hỗ trợ audio.</audio>
-            <div style="font-size:0.97em;color:#64748b;">Đây là file ghi âm đã được giáo viên tải lên.</div>
-          ` : `<div style="color:#64748b;">Chưa có file ghi âm được tải lên cho bài tập này.</div>`}
-          ${exercise.audioContent ?
-            `<button onclick="this.nextElementSibling.style.display='block';this.style.display='none';" style="margin-top:14px;background:#2563eb;" class="button-big">Xem Nội dung Bài Nghe (Văn bản)</button>
-            <div style="display:none;margin-top:8px;font-style:italic;background:#e0e7ff;padding:9px 13px;border-radius:7px;color:#1e293b;">${exercise.audioContent}</div>` :
-            `<div style="color:#64748b;">Không có nội dung văn bản cho bài nghe này.</div>`
-          }
-        </div>
-        <div style="margin-bottom:18px;">
-          <label class="section-title" for="studentInput">Bài làm của bạn:</label>
-          <textarea id="studentInput" placeholder="Gõ bài làm của bạn vào đây..." style="margin-top:10px;"></textarea>
-        </div>
-        <button id="gradeBtn" class="button-big student" style="width:100%;">Chấm Điểm</button>
-        <div id="resultDiv"></div>
-      `;
-      app.appendChild(card);
-
-      card.querySelector('#gradeBtn').onclick = function() {
-        const studentInput = card.querySelector('#studentInput').value.trim();
-        const answerKey = exercise.answerKey.trim();
-        const [result, score] = gradeSubmission(studentInput, answerKey);
-        const resDiv = card.querySelector('#resultDiv');
-        resDiv.innerHTML = `
-          <div style="margin-top:24px;padding:18px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;">
-            <div class="section-title" style="color:#22c55e;font-size:1.3rem;">Kết Quả Chấm Điểm:</div>
-            <div style="font-size:1.2rem;font-weight:700;color:#222;">Điểm số: <span style="color:#16a34a;">${score.toFixed(2)}%</span></div>
-            <div class="result-highlight" style="margin:10px 0 8px 0;">${
-              result.map(item => {
-                if(item.status==='correct') return `<span class="correct">${item.word}</span>`;
-                if(item.status==='incorrect') return `<span class="incorrect">${item.word}</span>`;
-                if(item.status==='missing') return `<span class="missing">${item.word}</span>`;
-                return item.word;
-              }).join(' ')
-            }</div>
-            <div style="font-size:0.98em;color:#64748b;margin-top:7px;">
-              <b style="color:#dc2626;">Màu đỏ:</b> Từ sai.
-              <b style="color:#eab308;margin-left:14px;">Màu vàng gạch chân:</b> Từ thiếu.
-              <span style="color:#222;margin-left:14px;">Màu đen:</span> Từ đúng.
+    <!-- Delete Confirmation Modal Structure -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Xác nhận xóa</h3>
+            <p class="text-gray-700 mb-6">
+                Bạn có chắc chắn muốn xóa bài tập ID: <span id="exercise-to-delete-id"></span> không?
+            </p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-300">
+                    Hủy
+                </button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-300">
+                    Xóa
+                </button>
             </div>
-          </div>
-        `;
-      };
-    }
-
-    // --- Grading Logic (same as your React code) ---
-    function gradeSubmission(studentInput, answerKey) {
-      const studentWords = studentInput.toLowerCase().split(/\s+/).filter(w=>w.length>0);
-      const answerWords = answerKey.toLowerCase().split(/\s+/).filter(w=>w.length>0);
-      let result = [];
-      let studentIndex = 0, answerIndex = 0, correctCount = 0;
-      while(answerIndex < answerWords.length){
-        if(studentIndex < studentWords.length && studentWords[studentIndex] === answerWords[answerIndex]){
-          result.push({ word: answerWords[answerIndex], status:'correct' });
-          correctCount++; studentIndex++; answerIndex++;
-        } else {
-          let foundMatch = false;
-          if(studentIndex < studentWords.length){
-            for(let i=1;i<=3 && (answerIndex+i)<answerWords.length;i++){
-              if(studentWords[studentIndex] === answerWords[answerIndex+i]){
-                for(let j=0;j<i;j++){
-                  result.push({ word: answerWords[answerIndex+j], status:'missing'});
-                }
-                answerIndex += i;
-                foundMatch = true;
-                break;
-              }
-            }
-          }
-          if(!foundMatch){
-            if(studentIndex < studentWords.length){
-              result.push({ word: studentWords[studentIndex], status:'incorrect'});
-              studentIndex++;
-            } else {
-              result.push({ word: answerWords[answerIndex], status:'missing'});
-              answerIndex++;
-            }
-          }
-        }
-      }
-      while(studentIndex < studentWords.length){
-        result.push({ word: studentWords[studentIndex], status:'incorrect'});
-        studentIndex++;
-      }
-      const score = answerWords.length ? (correctCount/answerWords.length)*100 : 0;
-      return [result, score];
-    }
-
-    // --- Delete Modal ---
-    function showDeleteModal(id) {
-      if(document.getElementById('modalBackdrop')) return;
-      const backdrop = document.createElement('div');
-      backdrop.className = 'modal-backdrop';
-      backdrop.id = 'modalBackdrop';
-      backdrop.innerHTML = `
-        <div class="modal">
-          <div class="section-title" style="font-size:1.1rem;">Xác nhận xóa</div>
-          <div style="margin:14px 0;">Bạn có chắc chắn muốn xóa bài tập ID: <b>${id}</b> không?</div>
-          <div style="display:flex;gap:18px;justify-content:flex-end;">
-            <button onclick="closeDeleteModal()" style="background:#f3f4f6;color:#222;padding:8px 18px;border-radius:7px;border:none;">Hủy</button>
-            <button onclick="deleteExercise('${id}')" style="background:#ef4444;color:#fff;padding:8px 18px;border:none;border-radius:7px;">Xóa</button>
-          </div>
         </div>
-      `;
-      document.body.appendChild(backdrop);
-    }
-    function closeDeleteModal() {
-      let el = document.getElementById('modalBackdrop');
-      if(el) el.remove();
-    }
-    function deleteExercise(id) {
-      exercises = exercises.filter(ex=>ex.id!==id);
-      closeDeleteModal();
-      render();
-    }
+    </div>
 
-    // --- Student Select Exercise ---
-    function selectExercise(id) {
-      selectedExercise = exercises.find(ex=>ex.id===id);
-      render();
-    }
+    <script>
+        // Global state variables (replacing React's useState and useContext)
+        let currentView = 'home'; // 'home', 'teacher', 'student'
+        let exercises = []; // Initial mock data for exercises
+        let selectedExercise = null;
+        let exerciseToDelete = null; // For delete confirmation modal
 
-    // --- Initial Render ---
-    render();
-    window.resetSelection = resetSelection;
-    window.selectExercise = selectExercise;
-    window.showDeleteModal = showDeleteModal;
-    window.closeDeleteModal = closeDeleteModal;
-    window.deleteExercise = deleteExercise;
-    window.render = render; // for buttons in html
-  </script>
+        // Function to render different views
+        function renderView() {
+            const mainContent = document.getElementById('app-main-content');
+            mainContent.innerHTML = ''; // Clear current content
+
+            switch (currentView) {
+                case 'home':
+                    renderHomeView(mainContent);
+                    break;
+                case 'teacher':
+                    renderTeacherDashboard(mainContent);
+                    break;
+                case 'student':
+                    if (selectedExercise) {
+                        renderExercisePlayer(mainContent, selectedExercise);
+                    } else {
+                        renderStudentDashboard(mainContent);
+                    }
+                    break;
+                default:
+                    renderHomeView(mainContent);
+            }
+        }
+
+        // Home View Component
+        function renderHomeView(parentDiv) {
+            const homeDiv = document.createElement('div');
+            homeDiv.className = 'bg-white p-8 rounded-xl shadow-lg text-center';
+            homeDiv.innerHTML = `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Chào mừng bạn!</h2>
+                <p class="text-lg text-gray-600 mb-8">
+                    Chọn vai trò của bạn để bắt đầu.
+                </p>
+                <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-6">
+                    <button id="home-teacher-btn" class="px-8 py-4 bg-green-500 text-white text-xl font-semibold rounded-lg shadow-xl hover:bg-green-600 transition duration-300 transform hover:scale-105">
+                        Tôi là Giáo Viên
+                    </button>
+                    <button id="home-student-btn" class="px-8 py-4 bg-purple-500 text-white text-xl font-semibold rounded-lg shadow-xl hover:bg-purple-600 transition duration-300 transform hover:scale-105">
+                        Tôi là Học Sinh
+                    </button>
+                </div>
+            `;
+            parentDiv.appendChild(homeDiv);
+
+            document.getElementById('home-teacher-btn').addEventListener('click', () => navigate('teacher'));
+            document.getElementById('home-student-btn').addEventListener('click', () => navigate('student'));
+        }
+
+        // Teacher Dashboard Component
+        function renderTeacherDashboard(parentDiv) {
+            const teacherDiv = document.createElement('div');
+            teacherDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
+            teacherDiv.innerHTML = `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Quản lý Bài Giảng (Giáo Viên)</h2>
+                <div id="teacher-message-area"></div>
+                <form id="add-exercise-form" class="mb-8 p-6 border border-gray-200 rounded-lg shadow-sm bg-gray-50">
+                    <h3 class="text-2xl font-semibold text-gray-700 mb-4">Tải Lên Bài Nghe Mới</h3>
+                    <div class="mb-4">
+                        <label htmlFor="folder" class="block text-gray-700 text-sm font-bold mb-2">
+                            Thư mục/Chủ đề:
+                        </label>
+                        <input type="text" id="folder-input" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ví dụ: Bài 1, Chủ đề Gia đình..." />
+                    </div>
+                    <div class="mb-4">
+                        <label htmlFor="audioFile" class="block text-gray-700 text-sm font-bold mb-2">
+                            Tải File Ghi Âm (.mp3, .wav, v.v.):
+                        </label>
+                        <input type="file" id="audio-file-input" accept="audio/*" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        <p id="audio-file-name" class="mt-2 text-sm text-gray-600"></p>
+                    </div>
+                    <div class="mb-6">
+                        <label htmlFor="answerKey" class="block text-gray-700 text-sm font-bold mb-2">
+                            Đáp án chính xác:
+                        </label>
+                        <textarea id="answer-key-input" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32" placeholder="Nhập đáp án chính xác của bài nghe tại đây..."></textarea>
+                    </div>
+                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                        Thêm Bài Tập
+                    </button>
+                </form>
+
+                <h3 class="text-2xl font-semibold text-gray-700 mb-4">Các Bài Tập Đã Tải Lên</h3>
+                <div id="exercises-list-container"></div>
+            `;
+            parentDiv.appendChild(teacherDiv);
+
+            const messageArea = document.getElementById('teacher-message-area');
+            const folderInput = document.getElementById('folder-input');
+            const audioFileInput = document.getElementById('audio-file-input');
+            const audioFileNameDisplay = document.getElementById('audio-file-name');
+            const answerKeyInput = document.getElementById('answer-key-input');
+            const addExerciseForm = document.getElementById('add-exercise-form');
+            const exercisesListContainer = document.getElementById('exercises-list-container');
+
+            let currentAudioFile = null;
+
+            // Handle file selection
+            audioFileInput.addEventListener('change', (e) => {
+                currentAudioFile = e.target.files[0];
+                if (currentAudioFile) {
+                    audioFileNameDisplay.textContent = `File đã chọn: ${currentAudioFile.name}`;
+                } else {
+                    audioFileNameDisplay.textContent = '';
+                }
+            });
+
+            // Handle adding new exercise
+            addExerciseForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const folder = folderInput.value.trim();
+                const answerKey = answerKeyInput.value.trim();
+
+                if (!answerKey || !folder || !currentAudioFile) {
+                    showMessage(messageArea, 'Vui lòng điền đầy đủ các trường: Đáp án, Thư mục và chọn File Ghi Âm.', 'bg-red-100 border-red-400 text-red-700');
+                    return;
+                }
+
+                const newExercise = {
+                    id: `ex${exercises.length + 1}`,
+                    folder,
+                    audioContent: '', // In a real app, you'd extract text from audio here
+                    answerKey,
+                    audioFileUrl: URL.createObjectURL(currentAudioFile),
+                };
+                exercises.push(newExercise); // Add to global exercises array
+
+                // Clear form
+                folderInput.value = '';
+                answerKeyInput.value = '';
+                audioFileInput.value = ''; // Clear file input
+                currentAudioFile = null;
+                audioFileNameDisplay.textContent = '';
+
+                showMessage(messageArea, 'Bài tập đã được thêm thành công!', 'bg-blue-100 border-blue-400 text-blue-700');
+                renderExercisesList(); // Re-render the list of exercises
+            });
+
+            // Function to display messages
+            function showMessage(element, msg, classes) {
+                element.innerHTML = `<div class="${classes} px-4 py-3 rounded relative mb-4" role="alert">
+                                        <span class="block sm:inline">${msg}</span>
+                                    </div>`;
+                setTimeout(() => {
+                    element.innerHTML = '';
+                }, 3000);
+            }
+
+            // Function to render the list of uploaded exercises
+            function renderExercisesList() {
+                exercisesListContainer.innerHTML = ''; // Clear previous list
+
+                const folders = [...new Set(exercises.map(ex => ex.folder))];
+
+                if (folders.length === 0) {
+                    exercisesListContainer.innerHTML = '<p class="text-gray-600">Chưa có bài tập nào được tải lên.</p>';
+                    return;
+                }
+
+                const gridDiv = document.createElement('div');
+                gridDiv.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+
+                folders.forEach(folderName => {
+                    const exercisesInFolder = exercises.filter(ex => ex.folder === folderName);
+                    const folderDiv = document.createElement('div');
+                    folderDiv.className = 'bg-blue-50 p-6 rounded-lg shadow-md border border-blue-200';
+                    folderDiv.innerHTML = `
+                        <h4 class="text-xl font-semibold text-blue-800 mb-4">${folderName}</h4>
+                        <ul class="list-disc list-inside text-gray-700" id="folder-${folderName.replace(/\s+/g, '-')}-list">
+                            <!-- Exercises will be appended here -->
+                        </ul>
+                    `;
+                    gridDiv.appendChild(folderDiv);
+
+                    const ul = folderDiv.querySelector(`#folder-${folderName.replace(/\s+/g, '-')}-list`);
+                    exercisesInFolder.forEach(ex => {
+                        const li = document.createElement('li');
+                        li.className = 'mb-2 flex justify-between items-center';
+                        li.innerHTML = `
+                            <span>
+                                Bài tập ID: ${ex.id}
+                                ${ex.audioFileUrl ? '<p class="text-sm text-gray-500 italic">(Đã có file audio)</p>' : ''}
+                            </span>
+                            <div class="flex space-x-2">
+                                <button data-exercise-id="${ex.id}" class="delete-exercise-btn px-3 py-1 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 transition duration-300 text-sm" title="Xóa bài tập">
+                                    Xóa
+                                </button>
+                            </div>
+                        `;
+                        ul.appendChild(li);
+                    });
+                });
+                exercisesListContainer.appendChild(gridDiv);
+
+                // Add event listeners for delete buttons
+                document.querySelectorAll('.delete-exercise-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const idToDelete = e.target.dataset.exerciseId;
+                        const ex = exercises.find(item => item.id === idToDelete);
+                        confirmDelete(ex);
+                    });
+                });
+            }
+
+            // Initial render of exercises list when teacher dashboard loads
+            renderExercisesList();
+        }
+
+        // Student Dashboard Component
+        function renderStudentDashboard(parentDiv) {
+            const studentDiv = document.createElement('div');
+            studentDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
+            studentDiv.innerHTML = `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Chọn Bài Tập (Học Sinh)</h2>
+                <div id="student-exercises-list-container"></div>
+            `;
+            parentDiv.appendChild(studentDiv);
+
+            const studentExercisesListContainer = document.getElementById('student-exercises-list-container');
+            const folders = [...new Set(exercises.map(ex => ex.folder))];
+
+            if (folders.length === 0) {
+                studentExercisesListContainer.innerHTML = '<p class="text-gray-600">Chưa có bài tập nào. Vui lòng đợi giáo viên tải lên.</p>';
+                return;
+            }
+
+            const gridDiv = document.createElement('div');
+            gridDiv.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+
+            folders.forEach(folderName => {
+                const exercisesInFolder = exercises.filter(ex => ex.folder === folderName);
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'bg-purple-50 p-6 rounded-lg shadow-md border border-purple-200';
+                folderDiv.innerHTML = `
+                    <h3 class="text-xl font-semibold text-purple-800 mb-4">${folderName}</h3>
+                    <ul class="list-disc list-inside text-gray-700" id="student-folder-${folderName.replace(/\s+/g, '-')}-list">
+                        <!-- Exercises will be appended here -->
+                    </ul>
+                `;
+                gridDiv.appendChild(folderDiv);
+
+                const ul = folderDiv.querySelector(`#student-folder-${folderName.replace(/\s+/g, '-')}-list`);
+                exercisesInFolder.forEach(ex => {
+                    const li = document.createElement('li');
+                    li.className = 'mb-2';
+                    li.innerHTML = `
+                        <button data-exercise-id="${ex.id}" class="select-exercise-btn text-blue-600 hover:text-blue-800 font-medium hover:underline transition duration-200">
+                            Bài tập ID: ${ex.id}
+                        </button>
+                    `;
+                    ul.appendChild(li);
+                });
+            });
+            studentExercisesListContainer.appendChild(gridDiv);
+
+            // Add event listeners for selecting exercises
+            document.querySelectorAll('.select-exercise-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const idToSelect = e.target.dataset.exerciseId;
+                    selectedExercise = exercises.find(item => item.id === idToSelect);
+                    renderView(); // Re-render to show ExercisePlayer
+                });
+            });
+        }
+
+        // Exercise Player and Grading Component
+        function renderExercisePlayer(parentDiv, exercise) {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
+            playerDiv.innerHTML = `
+                <button id="back-to-student-dashboard" class="mb-6 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow-sm hover:bg-gray-300 transition duration-300">
+                    &larr; Quay lại
+                </button>
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">
+                    Bài Tập: ${exercise.folder} - ID: ${exercise.id}
+                </h2>
+
+                <div class="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
+                    <h3 class="text-xl font-semibold text-blue-800 mb-3">Nội dung bài nghe:</h3>
+                    ${exercise.audioFileUrl ? `
+                        <div class="mb-4">
+                            <audio controls class="w-full rounded-md">
+                                <source src="${exercise.audioFileUrl}" type="audio/mpeg" />
+                                Trình duyệt của bạn không hỗ trợ phần tử audio.
+                            </audio>
+                            <p class="mt-2 text-sm text-gray-600">
+                                Đây là file ghi âm đã được giáo viên tải lên.
+                            </p>
+                        </div>
+                    ` : `
+                        <p class="text-gray-600 italic mb-4">
+                            Chưa có file ghi âm được tải lên cho bài tập này.
+                        </p>
+                    `}
+
+                    ${exercise.audioContent ? `
+                        <button id="show-audio-content-btn" class="px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 transform hover:scale-105 mb-4">
+                            Xem Nội dung Bài Nghe (Văn bản)
+                        </button>
+                    ` : ''}
+                    
+                    <p id="audio-content-display" class="text-gray-700 italic border-l-4 border-blue-400 pl-4 py-2 bg-blue-100 rounded-md ${!exercise.audioContent || !showAudioContent ? 'hidden' : ''}">
+                        ${exercise.audioContent || ''}
+                    </p>
+                    ${!exercise.audioContent ? `
+                        <p class="text-gray-600 italic">
+                            Không có nội dung văn bản cho bài nghe này.
+                        </p>
+                    ` : ''}
+                </div>
+
+                <div class="mb-6">
+                    <label htmlFor="studentInput" class="block text-gray-700 text-sm font-bold mb-2">
+                        Bài làm của bạn:
+                    </label>
+                    <textarea id="student-input" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent h-40" placeholder="Gõ bài làm của bạn vào đây..."></textarea>
+                </div>
+
+                <button id="grade-submission-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                    Chấm Điểm
+                </button>
+
+                <div id="graded-result-area" class="mt-8 p-6 border border-green-200 rounded-lg bg-green-50 hidden">
+                    <h3 class="text-2xl font-semibold text-green-800 mb-4">Kết Quả Chấm Điểm:</h3>
+                    <p class="text-xl font-bold text-gray-800 mb-4">
+                        Điểm số: <span id="score-display" class="text-green-600"></span>
+                    </p>
+                    <div id="result-text-display" class="text-lg leading-relaxed"></div>
+                    <p class="mt-4 text-sm text-gray-600">
+                        <span class="text-red-600 font-bold">Màu đỏ:</span> Từ sai.
+                        <span class="text-yellow-600 font-bold ml-4">Màu vàng gạch chân:</span> Từ thiếu (hệ thống bổ sung).
+                        <span class="text-gray-800 ml-4">Màu đen:</span> Từ đúng.
+                    </p>
+                </div>
+            `;
+            parentDiv.appendChild(playerDiv);
+
+            const studentInput = document.getElementById('student-input');
+            const gradeSubmissionBtn = document.getElementById('grade-submission-btn');
+            const gradedResultArea = document.getElementById('graded-result-area');
+            const scoreDisplay = document.getElementById('score-display');
+            const resultTextDisplay = document.getElementById('result-text-display');
+            const showAudioContentBtn = document.getElementById('show-audio-content-btn');
+            const audioContentDisplay = document.getElementById('audio-content-display');
+
+            // Set initial value for student input if it was previously set
+            studentInput.value = exercise.studentInput || '';
+
+            // Handle back button
+            document.getElementById('back-to-student-dashboard').addEventListener('click', () => {
+                selectedExercise = null;
+                renderView();
+            });
+
+            // Handle show audio content button
+            if (showAudioContentBtn) {
+                showAudioContentBtn.addEventListener('click', () => {
+                    audioContentDisplay.classList.remove('hidden');
+                });
+            }
+
+            // Handle grading
+            gradeSubmissionBtn.addEventListener('click', () => {
+                // Save student's current input to the exercise object (for persistence if navigating away and back)
+                exercise.studentInput = studentInput.value;
+
+                const studentWords = studentInput.value.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+                const answerWords = exercise.answerKey.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+
+                const result = [];
+                let studentIndex = 0;
+                let answerIndex = 0;
+                let correctCount = 0;
+
+                while (answerIndex < answerWords.length) {
+                    if (studentIndex < studentWords.length && studentWords[studentIndex] === answerWords[answerIndex]) {
+                        result.push({ word: answerWords[answerIndex], status: 'correct' });
+                        correctCount++;
+                        studentIndex++;
+                        answerIndex++;
+                    } else {
+                        let foundMatch = false;
+                        if (studentIndex < studentWords.length) {
+                            for (let i = 1; i <= 3 && (answerIndex + i) < answerWords.length; i++) {
+                                if (studentWords[studentIndex] === answerWords[answerIndex + i]) {
+                                    for (let j = 0; j < i; j++) {
+                                        result.push({ word: answerWords[answerIndex + j], status: 'missing' });
+                                    }
+                                    answerIndex += i;
+                                    foundMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!foundMatch) {
+                            if (studentIndex < studentWords.length) {
+                                result.push({ word: studentWords[studentIndex], status: 'incorrect' });
+                                studentIndex++;
+                            } else {
+                                result.push({ word: answerWords[answerIndex], status: 'missing' });
+                                answerIndex++;
+                            }
+                        }
+                    }
+                }
+
+                while (studentIndex < studentWords.length) {
+                    result.push({ word: studentWords[studentIndex], status: 'incorrect' });
+                    studentIndex++;
+                }
+
+                const score = (correctCount / answerWords.length) * 100;
+
+                // Display results
+                gradedResultArea.classList.remove('hidden');
+                scoreDisplay.textContent = `${score.toFixed(2)}%`;
+                resultTextDisplay.innerHTML = ''; // Clear previous result
+
+                result.forEach((item, index) => {
+                    const span = document.createElement('span');
+                    span.className = `
+                        ${item.status === 'correct' ? 'text-gray-800' : ''}
+                        ${item.status === 'incorrect' ? 'text-red-600 font-bold' : ''}
+                        ${item.status === 'missing' ? 'text-yellow-600 font-bold underline' : ''}
+                        mr-1
+                    `;
+                    span.textContent = item.word + ' ';
+                    resultTextDisplay.appendChild(span);
+                });
+            });
+        }
+
+        // Navigation function
+        function navigate(view) {
+            currentView = view;
+            selectedExercise = null; // Reset selected exercise when switching views
+            renderView();
+        }
+
+        // Event listeners for main navigation buttons
+        document.getElementById('home-nav-btn').addEventListener('click', () => navigate('home'));
+        document.getElementById('teacher-nav-btn').addEventListener('click', () => navigate('teacher'));
+        document.getElementById('student-nav-btn').addEventListener('click', () => navigate('student'));
+
+        // Delete Confirmation Modal Logic
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const exerciseToDeleteIdSpan = document.getElementById('exercise-to-delete-id');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+        function confirmDelete(exercise) {
+            exerciseToDelete = exercise;
+            exerciseToDeleteIdSpan.textContent = exercise.id;
+            deleteConfirmModal.classList.remove('hidden');
+        }
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteConfirmModal.classList.add('hidden');
+            exerciseToDelete = null;
+        });
+
+        confirmDeleteBtn.addEventListener('click', () => {
+            if (exerciseToDelete) {
+                exercises = exercises.filter(ex => ex.id !== exerciseToDelete.id);
+                deleteConfirmModal.classList.add('hidden');
+                exerciseToDelete = null;
+                // Re-render the teacher dashboard to update the list
+                renderView();
+                // Show success message
+                const messageArea = document.getElementById('teacher-message-area');
+                if (messageArea) {
+                    showMessage(messageArea, `Bài tập ID: ${exerciseToDelete.id} đã được xóa thành công.`, 'bg-blue-100 border-blue-400 text-blue-700');
+                }
+            }
+        });
+
+        // Initial render when the page loads
+        document.addEventListener('DOMContentLoaded', renderView);
+    </script>
 </body>
 </html>
