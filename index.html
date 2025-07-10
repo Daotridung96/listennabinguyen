@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listen and Write English</title>
+    <title>Nghe và Viết Tiếng Anh</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom font import */
+        /* Tải font tùy chỉnh */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
@@ -18,7 +18,7 @@
 
     <header class="bg-white shadow-lg rounded-xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center">
         <h1 class="text-4xl font-extrabold text-gray-800 mb-4 md:mb-0">
-            Listen and write English
+            Nghe và Viết Tiếng Anh
         </h1>
         <nav class="space-x-2 sm:space-x-4 flex flex-wrap justify-center">
             <button id="home-nav-btn" class="px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105 text-sm sm:text-base mb-2 sm:mb-0">
@@ -34,11 +34,11 @@
     </header>
 
     <main id="app-main-content" class="container mx-auto">
-        <!-- Content will be dynamically loaded here by JavaScript -->
+        <!-- Nội dung sẽ được tải động bằng JavaScript -->
         <div class="text-center text-gray-600 text-xl mt-10">Đang tải dữ liệu...</div>
     </main>
 
-    <!-- Delete Confirmation Modal Structure -->
+    <!-- Cấu trúc Modal xác nhận xóa -->
     <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Xác nhận xóa</h3>
@@ -62,33 +62,26 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global state variables
+        // Biến trạng thái toàn cục
         let currentView = 'home';
-        let exercises = []; // This array will be populated from Firestore
+        let exercises = []; // Mảng này sẽ được điền từ Firestore
         let selectedExercise = null;
         let exerciseToDelete = null;
 
-        // Firebase variables
+        // Biến Firebase
         let app;
         let auth;
         let db;
-        let userId = 'anonymous'; // Default to anonymous
-        let authReady = false; // Flag to ensure Firestore operations wait for auth
+        let userId = 'anonymous'; // Mặc định là người dùng ẩn danh
+        let authReady = false; // Cờ để đảm bảo các thao tác Firestore chờ xác thực
 
-        // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIGURATION AND APP ID
-        // You can find your Firebase config in your Firebase project settings:
-        // Project settings -> Your apps -> Web app -> Firebase SDK snippet -> Config
-        const firebaseConfig = {
-             apiKey: "AIzaSyDTklykLRzKSkSu_1xKxuCjzVNmpzTs4M8",
-             authDomain: "listennabinguyen.firebaseapp.com",
-             projectId: "listennabinguyen",
-             storageBucket: "listennabinguyen.firebasestorage.app",
-             messagingSenderId: "607843224399",
-             appId: "1:607843224399:web:201fbfbdef5089e273933a"
-        };
-        const appId = "listennabinguyen-app"; // This is the Canvas app ID, which you can set to anything unique for your data
+        // CẤU HÌNH FIREBASE CỦA BẠN
+        // Bạn có thể tìm cấu hình Firebase của mình trong cài đặt dự án Firebase:
+        // Cài đặt dự án -> Ứng dụng của bạn -> Ứng dụng web -> Đoạn mã SDK Firebase -> Cấu hình
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Helper function to convert File to Base64
+        // Hàm trợ giúp để chuyển đổi File sang Base64
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -98,7 +91,7 @@
             });
         }
 
-        // Function to display messages
+        // Hàm hiển thị thông báo
         function showMessage(element, msg, classes) {
             element.innerHTML = `<div class="${classes} px-4 py-3 rounded relative mb-4" role="alert">
                                     <span class="block sm:inline">${msg}</span>
@@ -108,16 +101,61 @@
             }, 3000);
         }
 
-        // Function to render different views
+        // Hàm để thêm bài tập vào Firestore
+        async function addExerciseToFirestore(exerciseData) {
+            if (!db || !authReady) {
+                console.error("Firestore hoặc xác thực chưa sẵn sàng.");
+                return false;
+            }
+            try {
+                // Lưu trữ dữ liệu công khai, có thể truy cập bởi bất kỳ người dùng nào đã xác thực
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/exercises`), {
+                    ...exerciseData,
+                    createdBy: userId,
+                    createdAt: new Date().toISOString()
+                });
+                console.log("Bài tập được thêm với ID: ", docRef.id);
+                return true;
+            } catch (e) {
+                console.error("Lỗi khi thêm tài liệu: ", e);
+                return false;
+            }
+        }
+
+        // Hàm để xóa bài tập khỏi Firestore
+        async function deleteExerciseFromFirestore(exerciseId) {
+            if (!db || !authReady) {
+                console.error("Firestore hoặc xác thực chưa sẵn sàng.");
+                return false;
+            }
+            try {
+                // Xóa tài liệu khỏi bộ sưu tập công khai
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/exercises`, exerciseId));
+                console.log("Bài tập đã được xóa thành công!");
+                return true;
+            } catch (e) {
+                console.error("Lỗi khi xóa tài liệu: ", e);
+                return false;
+            }
+        }
+
+        // Hàm để render các chế độ xem khác nhau
         function renderView() {
             const mainContent = document.getElementById('app-main-content');
-            mainContent.innerHTML = ''; // Clear current content
+            mainContent.innerHTML = ''; // Xóa nội dung hiện tại
 
-            // Only render if Firebase auth is ready
+            // Chỉ render nếu xác thực Firebase đã sẵn sàng
             if (!authReady) {
                 mainContent.innerHTML = '<div class="text-center text-gray-600 text-xl mt-10">Đang tải dữ liệu...</div>';
                 return;
             }
+
+            // Hiển thị userId để gỡ lỗi
+            const userIdDisplay = document.createElement('div');
+            userIdDisplay.className = 'text-center text-gray-500 text-sm mb-4';
+            userIdDisplay.textContent = `ID Người dùng: ${userId}`;
+            mainContent.appendChild(userIdDisplay);
+
 
             switch (currentView) {
                 case 'home':
@@ -138,7 +176,7 @@
             }
         }
 
-        // Home View Component
+        // Thành phần Chế độ xem Trang chủ
         function renderHomeView(parentDiv) {
             const homeDiv = document.createElement('div');
             homeDiv.className = 'bg-white p-8 rounded-xl shadow-lg text-center';
@@ -162,7 +200,7 @@
             document.getElementById('home-student-btn').addEventListener('click', () => navigate('student'));
         }
 
-        // Teacher Dashboard Component
+        // Thành phần Bảng điều khiển Giáo viên
         function renderTeacherDashboard(parentDiv) {
             const teacherDiv = document.createElement('div');
             teacherDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -210,7 +248,7 @@
 
             let currentAudioFile = null;
 
-            // Handle file selection
+            // Xử lý chọn tệp
             audioFileInput.addEventListener('change', (e) => {
                 currentAudioFile = e.target.files[0];
                 if (currentAudioFile) {
@@ -220,7 +258,7 @@
                 }
             });
 
-            // Handle adding new exercise
+            // Xử lý thêm bài tập mới
             addExerciseForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const folder = folderInput.value.trim();
@@ -232,22 +270,22 @@
                 }
 
                 try {
-                    // Convert audio file to Base64 string
+                    // Chuyển đổi tệp âm thanh sang chuỗi Base64
                     const audioBase64 = await fileToBase64(currentAudioFile);
 
                     const newExerciseData = {
                         folder,
-                        audioContent: '', // Text content from audio is out of scope for this app
+                        audioContent: '', // Nội dung văn bản từ âm thanh nằm ngoài phạm vi của ứng dụng này
                         answerKey,
-                        audioBase64: audioBase64, // Store Base64 string in Firestore
+                        audioBase64: audioBase64, // Lưu chuỗi Base64 vào Firestore
                     };
 
                     const success = await addExerciseToFirestore(newExerciseData);
                     if (success) {
-                        // Clear form only after successful Firestore add
+                        // Xóa biểu mẫu chỉ sau khi thêm thành công vào Firestore
                         folderInput.value = '';
                         answerKeyInput.value = '';
-                        audioFileInput.value = ''; // Clear file input
+                        audioFileInput.value = ''; // Xóa đầu vào tệp
                         currentAudioFile = null;
                         audioFileNameDisplay.textContent = '';
                         showMessage(messageArea, 'Bài tập đã được thêm thành công!', 'bg-blue-100 border-blue-400 text-blue-700');
@@ -255,14 +293,14 @@
                         showMessage(messageArea, 'Lỗi khi thêm bài tập. Vui lòng thử lại.', 'bg-red-100 border-red-400 text-red-700');
                     }
                 } catch (error) {
-                    console.error("Error processing audio file or adding exercise:", error);
+                    console.error("Lỗi khi xử lý tệp âm thanh hoặc thêm bài tập:", error);
                     showMessage(messageArea, 'Lỗi khi xử lý file âm thanh hoặc thêm bài tập.', 'bg-red-100 border-red-400 text-red-700');
                 }
             });
 
-            // Function to render the list of uploaded exercises
+            // Hàm để render danh sách các bài tập đã tải lên
             function renderExercisesList() {
-                exercisesListContainer.innerHTML = ''; // Clear previous list
+                exercisesListContainer.innerHTML = ''; // Xóa danh sách trước đó
 
                 const folders = [...new Set(exercises.map(ex => ex.folder))];
 
@@ -281,7 +319,7 @@
                     folderDiv.innerHTML = `
                         <h4 class="text-xl font-semibold text-blue-800 mb-4">${folderName}</h4>
                         <ul class="list-disc list-inside text-gray-700" id="folder-${folderName.replace(/\s+/g, '-')}-list">
-                            <!-- Exercises will be appended here -->
+                            <!-- Các bài tập sẽ được thêm vào đây -->
                         </ul>
                     `;
                     gridDiv.appendChild(folderDiv);
@@ -292,7 +330,6 @@
                         li.className = 'mb-2 flex justify-between items-center';
                         li.innerHTML = `
                             <span>
-                                <!-- Removed "Bài tập ID: ${ex.id}" -->
                                 ${ex.audioBase64 ? '<p class="text-sm text-gray-500 italic">(Đã có file audio)</p>' : ''}
                             </span>
                             <div class="flex space-x-2">
@@ -306,7 +343,7 @@
                 });
                 exercisesListContainer.appendChild(gridDiv);
 
-                // Add event listeners for delete buttons
+                // Thêm trình nghe sự kiện cho các nút xóa
                 document.querySelectorAll('.delete-exercise-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
                         const idToDelete = e.target.dataset.exerciseId;
@@ -316,11 +353,11 @@
                 });
             }
 
-            // Initial render of exercises list when teacher dashboard loads
+            // Render ban đầu danh sách bài tập khi bảng điều khiển giáo viên tải
             renderExercisesList();
         }
 
-        // Student Dashboard Component
+        // Thành phần Bảng điều khiển Học sinh
         function renderStudentDashboard(parentDiv) {
             const studentDiv = document.createElement('div');
             studentDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -348,7 +385,7 @@
                 folderDiv.innerHTML = `
                     <h3 class="text-xl font-semibold text-purple-800 mb-4">${folderName}</h3>
                     <ul class="list-disc list-inside text-gray-700" id="student-folder-${folderName.replace(/\s+/g, '-')}-list">
-                        <!-- Exercises will be appended here -->
+                        <!-- Các bài tập sẽ được thêm vào đây -->
                     </ul>
                 `;
                 gridDiv.appendChild(folderDiv);
@@ -359,7 +396,6 @@
                     li.className = 'mb-2';
                     li.innerHTML = `
                         <button data-exercise-id="${ex.id}" class="select-exercise-btn text-blue-600 hover:text-blue-800 font-medium hover:underline transition duration-200">
-                            <!-- Changed to show folder and a generic exercise indicator -->
                             Bài tập trong ${ex.folder}
                         </button>
                     `;
@@ -368,17 +404,17 @@
             });
             studentExercisesListContainer.appendChild(gridDiv);
 
-            // Add event listeners for selecting exercises
+            // Thêm trình nghe sự kiện để chọn bài tập
             document.querySelectorAll('.select-exercise-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const idToSelect = e.target.dataset.exerciseId;
                     selectedExercise = exercises.find(item => item.id === idToSelect);
-                    renderView(); // Re-render to show ExercisePlayer
+                    renderView(); // Render lại để hiển thị ExercisePlayer
                 });
             });
         }
 
-        // Exercise Player and Grading Component
+        // Thành phần Trình phát Bài tập và Chấm điểm
         function renderExercisePlayer(parentDiv, exercise) {
             const playerDiv = document.createElement('div');
             playerDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -461,25 +497,25 @@
             const showAudioContentBtn = document.getElementById('show-audio-content-btn');
             const audioContentDisplay = document.getElementById('audio-content-display');
 
-            // Set initial value for student input if it was previously set
+            // Đặt giá trị ban đầu cho đầu vào của học sinh nếu nó đã được đặt trước đó
             studentInput.value = exercise.studentInput || '';
 
-            // Handle back button
+            // Xử lý nút quay lại
             document.getElementById('back-to-student-dashboard').addEventListener('click', () => {
                 selectedExercise = null;
                 renderView();
             });
 
-            // Handle show audio content button
+            // Xử lý nút hiển thị nội dung âm thanh
             if (showAudioContentBtn) {
                 showAudioContentBtn.addEventListener('click', () => {
                     audioContentDisplay.classList.remove('hidden');
                 });
             }
 
-            // Handle grading
+            // Xử lý chấm điểm
             gradeSubmissionBtn.addEventListener('click', () => {
-                // Save student's current input to the exercise object (for persistence if navigating away and back)
+                // Lưu đầu vào hiện tại của học sinh vào đối tượng bài tập (để duy trì nếu điều hướng đi và quay lại)
                 exercise.studentInput = studentInput.value;
 
                 const studentWords = studentInput.value.toLowerCase().split(/\s+/).filter(word => word.length > 0);
@@ -530,10 +566,10 @@
 
                 const score = (correctCount / answerWords.length) * 100;
 
-                // Display results
+                // Hiển thị kết quả
                 gradedResultArea.classList.remove('hidden');
                 scoreDisplay.textContent = `${score.toFixed(2)}%`;
-                resultTextDisplay.innerHTML = ''; // Clear previous result
+                resultTextDisplay.innerHTML = ''; // Xóa kết quả trước đó
 
                 result.forEach((item, index) => {
                     const span = document.createElement('span');
@@ -549,19 +585,19 @@
             });
         }
 
-        // Navigation function
+        // Hàm điều hướng
         function navigate(view) {
             currentView = view;
-            selectedExercise = null; // Reset selected exercise when switching views
+            selectedExercise = null; // Đặt lại bài tập đã chọn khi chuyển đổi chế độ xem
             renderView();
         }
 
-        // Event listeners for main navigation buttons
+        // Trình nghe sự kiện cho các nút điều hướng chính
         document.getElementById('home-nav-btn').addEventListener('click', () => navigate('home'));
         document.getElementById('teacher-nav-btn').addEventListener('click', () => navigate('teacher'));
         document.getElementById('student-nav-btn').addEventListener('click', () => navigate('student'));
 
-        // Delete Confirmation Modal Logic
+        // Logic Modal xác nhận xóa
         const deleteConfirmModal = document.getElementById('delete-confirm-modal');
         const exerciseToDeleteIdSpan = document.getElementById('exercise-to-delete-id');
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
@@ -569,8 +605,7 @@
 
         function confirmDelete(exercise) {
             exerciseToDelete = exercise;
-            // Removed display of exercise ID in the confirmation modal
-            exerciseToDeleteIdSpan.textContent = "này"; // Generic text
+            exerciseToDeleteIdSpan.textContent = "này"; // Văn bản chung
             deleteConfirmModal.classList.remove('hidden');
         }
 
@@ -585,7 +620,7 @@
                 if (success) {
                     deleteConfirmModal.classList.add('hidden');
                     exerciseToDelete = null;
-                    // The onSnapshot listener will automatically re-render the list
+                    // Trình nghe onSnapshot sẽ tự động render lại danh sách
                     const messageArea = document.getElementById('teacher-message-area');
                     if (messageArea) {
                         showMessage(messageArea, `Bài tập đã được xóa thành công.`, 'bg-blue-100 border-blue-400 text-blue-700');
@@ -599,104 +634,45 @@
             }
         });
 
-        // Firebase setup and data loading
-        async function setupFirebase() {
-            // Check if Firebase config is available
-            // If running outside Canvas, use the hardcoded firebaseConfig
-            // If running inside Canvas, __firebase_config will be defined
-            const configToUse = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
-            const appIdToUse = typeof __app_id !== 'undefined' ? __app_id : appId; // Use Canvas app ID if available, else hardcoded
+        // Thiết lập Firebase và tải dữ liệu
+        window.onload = async () => {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
 
-            if (!configToUse || !configToUse.projectId) {
-                console.error("Firebase config not found or incomplete. Cannot initialize Firebase.");
-                document.getElementById('app-main-content').innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi: Không thể kết nối Firebase. Vui lòng kiểm tra cấu hình.</div>';
-                return;
+            // Đăng nhập người dùng ẩn danh hoặc với token tùy chỉnh
+            if (typeof __initial_auth_token !== 'undefined') {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
             }
 
-            // Initialize Firebase app
-            app = initializeApp(configToUse);
-            db = getFirestore(app);
-            auth = getAuth(app);
-
-            // Authenticate user
-            onAuthStateChanged(auth, async (user) => {
+            onAuthStateChanged(auth, (user) => {
                 if (user) {
                     userId = user.uid;
-                    console.log("Firebase authenticated. User ID:", userId);
+                    console.log("Người dùng đã đăng nhập:", userId);
                 } else {
-                    // Sign in anonymously if no user is logged in
-                    try {
-                        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                            userId = auth.currentUser.uid;
-                            console.log("Signed in with custom token. User ID:", userId);
-                        } else {
-                            await signInAnonymously(auth);
-                            userId = auth.currentUser.uid;
-                            console.log("Signed in anonymously. User ID:", userId);
-                        }
-                    } catch (error) {
-                        console.error("Firebase authentication error:", error);
-                        document.getElementById('app-main-content').innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi xác thực Firebase. Vui lòng thử lại.</div>';
-                        return;
-                    }
+                    userId = 'anonymous';
+                    console.log("Người dùng ẩn danh.");
                 }
-
-                // Set authReady to true and start listening for data
-                authReady = true;
-                setupFirestoreListeners(appIdToUse, userId);
-                renderView(); // Initial render after auth is ready
+                authReady = true; // Đặt cờ là true sau khi xác thực đã sẵn sàng
+                renderView(); // Render chế độ xem ban đầu sau khi xác thực
             });
-        }
 
-        // Setup Firestore real-time listeners
-        function setupFirestoreListeners(currentAppId, currentUserId) {
-            // Collection path for user-specific exercises
-            const exercisesColRef = collection(db, `artifacts/${currentAppId}/users/${currentUserId}/exercises`);
-
-            // Listen for real-time updates
-            onSnapshot(exercisesColRef, (snapshot) => {
-                const updatedExercises = snapshot.docs.map(doc => ({
-                    id: doc.id, // Firestore document ID
-                    ...doc.data() // All other fields
-                }));
-                exercises = updatedExercises;
-                console.log("Exercises loaded/updated from Firestore:", exercises);
-                renderView(); // Re-render the current view with updated data
+            // Lắng nghe các thay đổi trong bộ sưu tập bài tập
+            onSnapshot(collection(db, `artifacts/${appId}/public/data/exercises`), (snapshot) => {
+                exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("Bài tập được cập nhật:", exercises);
+                // Render lại chế độ xem hiện tại để hiển thị dữ liệu mới
+                renderView();
             }, (error) => {
-                console.error("Error fetching exercises from Firestore:", error);
+                console.error("Lỗi khi tải bài tập:", error);
                 const mainContent = document.getElementById('app-main-content');
-                showMessage(mainContent, 'Lỗi khi tải bài tập từ Firestore. Vui lòng tải lại trang.', 'bg-red-100 border-red-400 text-red-700');
+                if (mainContent) {
+                    mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi khi tải bài tập. Vui lòng kiểm tra kết nối internet hoặc cấu hình Firebase.</div>';
+                }
             });
-        }
-
-        // Function to add exercise to Firestore
-        async function addExerciseToFirestore(exerciseData) {
-            try {
-                const exercisesColRef = collection(db, `artifacts/${appId}/users/${userId}/exercises`);
-                await addDoc(exercisesColRef, exerciseData);
-                return true;
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                return false;
-            }
-        }
-
-        // Function to delete exercise from Firestore
-        async function deleteExerciseFromFirestore(exerciseId) {
-            try {
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/exercises`, exerciseId);
-                await deleteDoc(docRef);
-                return true;
-            } catch (e) {
-                console.error("Error deleting document: ", e);
-                return false;
-            }
-        }
-
-        // Initial call to setup Firebase when the DOM is fully loaded
-        document.addEventListener('DOMContentLoaded', setupFirebase);
+        };
     </script>
 </body>
 </html>
