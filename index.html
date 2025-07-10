@@ -75,9 +75,20 @@
         let userId = 'anonymous'; // Default to anonymous
         let authReady = false; // Flag to ensure Firestore operations wait for auth
 
-        // IMPORTANT: Use the global __firebase_config and __app_id variables
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // IMPORTANT: Use the global __firebase_config and __app_id variables when running in Canvas.
+        // When deploying to GitHub Pages or other environments, you MUST replace these with your actual Firebase project configuration.
+        // You can find your Firebase config in your Firebase project settings:
+        // Project settings -> Your apps -> Web app -> Firebase SDK snippet -> Config
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDTklykLRzKSkSu_1xKxuCjzVNmpzTs4M8",
+            authDomain: "listennabinguyen.firebaseapp.com",
+            projectId: "listennabinguyen",
+            storageBucket: "listennabinguyen.firebasestorage.app",
+            messagingSenderId: "607843224399",
+            appId: "1:607843224399:web:201fbfbdef5089e273933a"
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'listennabinguyen'; // Use your projectId or a unique ID for your app on GitHub Pages
+
 
         // Helper function to convert File to Base64
         function fileToBase64(file) {
