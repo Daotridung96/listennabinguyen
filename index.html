@@ -7,7 +7,6 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom font import */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
@@ -34,7 +33,6 @@
     </header>
 
     <main id="app-main-content" class="container mx-auto">
-        <!-- Content will be dynamically loaded here by JavaScript -->
         <div class="text-center text-gray-600 text-xl mt-10">Đang tải dữ liệu...</div>
     </main>
 
@@ -61,10 +59,11 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // Global state variables
         let currentView = 'home';
-        let exercises = []; // This array will be populated from Firestore
+        let exercises = [];
         let selectedExercise = null;
         let exerciseToDelete = null;
 
@@ -72,33 +71,20 @@
         let app;
         let auth;
         let db;
-        let userId = 'anonymous'; // Default to anonymous
-        let authReady = false; // Flag to ensure Firestore operations wait for auth
+        let storage;
+        let userId = 'anonymous';
+        let authReady = false;
 
-        // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIGURATION AND APP ID
-        // You can find your Firebase config in your Firebase project settings:
-        // Project settings -> Your apps -> Web app -> Firebase SDK snippet -> Config
         const firebaseConfig = {
              apiKey: "AIzaSyDTklykLRzKSkSu_1xKxuCjzVNmpzTs4M8",
              authDomain: "listennabinguyen.firebaseapp.com",
              projectId: "listennabinguyen",
-             storageBucket: "listennabinguyen.firebasestorage.app",
+             storageBucket: "listennabinguyen.appspot.com",
              messagingSenderId: "607843224399",
              appId: "1:607843224399:web:201fbfbdef5089e273933a"
         };
-        const appId = "listennabinguyen-app"; // This is the Canvas app ID, which you can set to anything unique for your data
+        const appId = "listennabinguyen-app";
 
-        // Helper function to convert File to Base64
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-        }
-
-        // Function to display messages
         function showMessage(element, msg, classes) {
             element.innerHTML = `<div class="${classes} px-4 py-3 rounded relative mb-4" role="alert">
                                     <span class="block sm:inline">${msg}</span>
@@ -108,12 +94,10 @@
             }, 3000);
         }
 
-        // Function to render different views
         function renderView() {
             const mainContent = document.getElementById('app-main-content');
-            mainContent.innerHTML = ''; // Clear current content
+            mainContent.innerHTML = '';
 
-            // Only render if Firebase auth is ready
             if (!authReady) {
                 mainContent.innerHTML = '<div class="text-center text-gray-600 text-xl mt-10">Đang tải dữ liệu...</div>';
                 return;
@@ -138,7 +122,6 @@
             }
         }
 
-        // Home View Component
         function renderHomeView(parentDiv) {
             const homeDiv = document.createElement('div');
             homeDiv.className = 'bg-white p-8 rounded-xl shadow-lg text-center';
@@ -162,7 +145,6 @@
             document.getElementById('home-student-btn').addEventListener('click', () => navigate('student'));
         }
 
-        // Teacher Dashboard Component
         function renderTeacherDashboard(parentDiv) {
             const teacherDiv = document.createElement('div');
             teacherDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -210,7 +192,6 @@
 
             let currentAudioFile = null;
 
-            // Handle file selection
             audioFileInput.addEventListener('change', (e) => {
                 currentAudioFile = e.target.files[0];
                 if (currentAudioFile) {
@@ -220,7 +201,6 @@
                 }
             });
 
-            // Handle adding new exercise
             addExerciseForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const folder = folderInput.value.trim();
@@ -232,22 +212,21 @@
                 }
 
                 try {
-                    // Convert audio file to Base64 string
-                    const audioBase64 = await fileToBase64(currentAudioFile);
+                    // Upload audio file to Firebase Storage
+                    const audioUrl = await uploadAudioFileToStorage(currentAudioFile, folder);
 
                     const newExerciseData = {
                         folder,
-                        audioContent: '', // Text content from audio is out of scope for this app
+                        audioContent: '',
                         answerKey,
-                        audioBase64: audioBase64, // Store Base64 string in Firestore
+                        audioUrl: audioUrl, // Store URL, not Base64
                     };
 
                     const success = await addExerciseToFirestore(newExerciseData);
                     if (success) {
-                        // Clear form only after successful Firestore add
                         folderInput.value = '';
                         answerKeyInput.value = '';
-                        audioFileInput.value = ''; // Clear file input
+                        audioFileInput.value = '';
                         currentAudioFile = null;
                         audioFileNameDisplay.textContent = '';
                         showMessage(messageArea, 'Bài tập đã được thêm thành công!', 'bg-blue-100 border-blue-400 text-blue-700');
@@ -260,9 +239,8 @@
                 }
             });
 
-            // Function to render the list of uploaded exercises
             function renderExercisesList() {
-                exercisesListContainer.innerHTML = ''; // Clear previous list
+                exercisesListContainer.innerHTML = '';
 
                 const folders = [...new Set(exercises.map(ex => ex.folder))];
 
@@ -280,9 +258,7 @@
                     folderDiv.className = 'bg-blue-50 p-6 rounded-lg shadow-md border border-blue-200';
                     folderDiv.innerHTML = `
                         <h4 class="text-xl font-semibold text-blue-800 mb-4">${folderName}</h4>
-                        <ul class="list-disc list-inside text-gray-700" id="folder-${folderName.replace(/\s+/g, '-')}-list">
-                            <!-- Exercises will be appended here -->
-                        </ul>
+                        <ul class="list-disc list-inside text-gray-700" id="folder-${folderName.replace(/\s+/g, '-')}-list"></ul>
                     `;
                     gridDiv.appendChild(folderDiv);
 
@@ -292,8 +268,7 @@
                         li.className = 'mb-2 flex justify-between items-center';
                         li.innerHTML = `
                             <span>
-                                <!-- Removed "Bài tập ID: ${ex.id}" -->
-                                ${ex.audioBase64 ? '<p class="text-sm text-gray-500 italic">(Đã có file audio)</p>' : ''}
+                                ${ex.audioUrl ? '<p class="text-sm text-gray-500 italic">(Đã có file audio)</p>' : ''}
                             </span>
                             <div class="flex space-x-2">
                                 <button data-exercise-id="${ex.id}" class="delete-exercise-btn px-3 py-1 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 transition duration-300 text-sm" title="Xóa bài tập">
@@ -306,7 +281,6 @@
                 });
                 exercisesListContainer.appendChild(gridDiv);
 
-                // Add event listeners for delete buttons
                 document.querySelectorAll('.delete-exercise-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
                         const idToDelete = e.target.dataset.exerciseId;
@@ -316,11 +290,9 @@
                 });
             }
 
-            // Initial render of exercises list when teacher dashboard loads
             renderExercisesList();
         }
 
-        // Student Dashboard Component
         function renderStudentDashboard(parentDiv) {
             const studentDiv = document.createElement('div');
             studentDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -347,9 +319,7 @@
                 folderDiv.className = 'bg-purple-50 p-6 rounded-lg shadow-md border border-purple-200';
                 folderDiv.innerHTML = `
                     <h3 class="text-xl font-semibold text-purple-800 mb-4">${folderName}</h3>
-                    <ul class="list-disc list-inside text-gray-700" id="student-folder-${folderName.replace(/\s+/g, '-')}-list">
-                        <!-- Exercises will be appended here -->
-                    </ul>
+                    <ul class="list-disc list-inside text-gray-700" id="student-folder-${folderName.replace(/\s+/g, '-')}-list"></ul>
                 `;
                 gridDiv.appendChild(folderDiv);
 
@@ -359,7 +329,6 @@
                     li.className = 'mb-2';
                     li.innerHTML = `
                         <button data-exercise-id="${ex.id}" class="select-exercise-btn text-blue-600 hover:text-blue-800 font-medium hover:underline transition duration-200">
-                            <!-- Changed to show folder and a generic exercise indicator -->
                             Bài tập trong ${ex.folder}
                         </button>
                     `;
@@ -368,17 +337,15 @@
             });
             studentExercisesListContainer.appendChild(gridDiv);
 
-            // Add event listeners for selecting exercises
             document.querySelectorAll('.select-exercise-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const idToSelect = e.target.dataset.exerciseId;
                     selectedExercise = exercises.find(item => item.id === idToSelect);
-                    renderView(); // Re-render to show ExercisePlayer
+                    renderView();
                 });
             });
         }
 
-        // Exercise Player and Grading Component
         function renderExercisePlayer(parentDiv, exercise) {
             const playerDiv = document.createElement('div');
             playerDiv.className = 'bg-white p-8 rounded-xl shadow-lg';
@@ -392,17 +359,14 @@
 
                 <div class="mb-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
                     <h3 class="text-xl font-semibold text-blue-800 mb-3">Nội dung bài nghe:</h3>
-                    ${exercise.audioBase64 ? `
+                    ${exercise.audioUrl ? `
                         <div class="mb-4">
                             <audio controls class="w-full rounded-md">
-                                <source src="${exercise.audioBase64}" type="audio/mpeg" />
+                                <source src="${exercise.audioUrl}" type="audio/mpeg" />
                                 Trình duyệt của bạn không hỗ trợ phần tử audio.
                             </audio>
                             <p class="mt-2 text-sm text-gray-600">
                                 Đây là file ghi âm đã được giáo viên tải lên.
-                            </p>
-                            <p class="mt-2 text-sm text-red-500">
-                                Lưu ý: Các tệp âm thanh được lưu trữ dưới dạng văn bản (Base64) trong cơ sở dữ liệu. Điều này có thể làm tăng kích thước tài liệu và không phù hợp cho các tệp lớn.
                             </p>
                         </div>
                     ` : `
@@ -410,21 +374,9 @@
                             Chưa có file ghi âm được tải lên cho bài tập này.
                         </p>
                     `}
-
-                    ${exercise.audioContent ? `
-                        <button id="show-audio-content-btn" class="px-6 py-3 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300 transform hover:scale-105 mb-4">
-                            Xem Nội dung Bài Nghe (Văn bản)
-                        </button>
-                    ` : ''}
-                    
-                    <p id="audio-content-display" class="text-gray-700 italic border-l-4 border-blue-400 pl-4 py-2 bg-blue-100 rounded-md hidden">
-                        ${exercise.audioContent || ''}
+                    <p class="text-gray-600 italic">
+                        Không có nội dung văn bản cho bài nghe này.
                     </p>
-                    ${!exercise.audioContent ? `
-                        <p class="text-gray-600 italic">
-                            Không có nội dung văn bản cho bài nghe này.
-                        </p>
-                    ` : ''}
                 </div>
 
                 <div class="mb-6">
@@ -458,28 +410,15 @@
             const gradedResultArea = document.getElementById('graded-result-area');
             const scoreDisplay = document.getElementById('score-display');
             const resultTextDisplay = document.getElementById('result-text-display');
-            const showAudioContentBtn = document.getElementById('show-audio-content-btn');
-            const audioContentDisplay = document.getElementById('audio-content-display');
 
-            // Set initial value for student input if it was previously set
             studentInput.value = exercise.studentInput || '';
 
-            // Handle back button
             document.getElementById('back-to-student-dashboard').addEventListener('click', () => {
                 selectedExercise = null;
                 renderView();
             });
 
-            // Handle show audio content button
-            if (showAudioContentBtn) {
-                showAudioContentBtn.addEventListener('click', () => {
-                    audioContentDisplay.classList.remove('hidden');
-                });
-            }
-
-            // Handle grading
             gradeSubmissionBtn.addEventListener('click', () => {
-                // Save student's current input to the exercise object (for persistence if navigating away and back)
                 exercise.studentInput = studentInput.value;
 
                 const studentWords = studentInput.value.toLowerCase().split(/\s+/).filter(word => word.length > 0);
@@ -530,10 +469,9 @@
 
                 const score = (correctCount / answerWords.length) * 100;
 
-                // Display results
                 gradedResultArea.classList.remove('hidden');
                 scoreDisplay.textContent = `${score.toFixed(2)}%`;
-                resultTextDisplay.innerHTML = ''; // Clear previous result
+                resultTextDisplay.innerHTML = '';
 
                 result.forEach((item, index) => {
                     const span = document.createElement('span');
@@ -549,19 +487,16 @@
             });
         }
 
-        // Navigation function
         function navigate(view) {
             currentView = view;
-            selectedExercise = null; // Reset selected exercise when switching views
+            selectedExercise = null;
             renderView();
         }
 
-        // Event listeners for main navigation buttons
         document.getElementById('home-nav-btn').addEventListener('click', () => navigate('home'));
         document.getElementById('teacher-nav-btn').addEventListener('click', () => navigate('teacher'));
         document.getElementById('student-nav-btn').addEventListener('click', () => navigate('student'));
 
-        // Delete Confirmation Modal Logic
         const deleteConfirmModal = document.getElementById('delete-confirm-modal');
         const exerciseToDeleteIdSpan = document.getElementById('exercise-to-delete-id');
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
@@ -569,8 +504,7 @@
 
         function confirmDelete(exercise) {
             exerciseToDelete = exercise;
-            // Removed display of exercise ID in the confirmation modal
-            exerciseToDeleteIdSpan.textContent = "này"; // Generic text
+            exerciseToDeleteIdSpan.textContent = "này";
             deleteConfirmModal.classList.remove('hidden');
         }
 
@@ -581,11 +515,10 @@
 
         confirmDeleteBtn.addEventListener('click', async () => {
             if (exerciseToDelete) {
-                const success = await deleteExerciseFromFirestore(exerciseToDelete.id);
+                const success = await deleteExerciseFromFirestore(exerciseToDelete.id, exerciseToDelete.audioUrl);
                 if (success) {
                     deleteConfirmModal.classList.add('hidden');
                     exerciseToDelete = null;
-                    // The onSnapshot listener will automatically re-render the list
                     const messageArea = document.getElementById('teacher-message-area');
                     if (messageArea) {
                         showMessage(messageArea, `Bài tập đã được xóa thành công.`, 'bg-blue-100 border-blue-400 text-blue-700');
@@ -599,13 +532,9 @@
             }
         });
 
-        // Firebase setup and data loading
         async function setupFirebase() {
-            // Check if Firebase config is available
-            // If running outside Canvas, use the hardcoded firebaseConfig
-            // If running inside Canvas, __firebase_config will be defined
             const configToUse = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
-            const appIdToUse = typeof __app_id !== 'undefined' ? __app_id : appId; // Use Canvas app ID if available, else hardcoded
+            const appIdToUse = typeof __app_id !== 'undefined' ? __app_id : appId;
 
             if (!configToUse || !configToUse.projectId) {
                 console.error("Firebase config not found or incomplete. Cannot initialize Firebase.");
@@ -613,18 +542,16 @@
                 return;
             }
 
-            // Initialize Firebase app
             app = initializeApp(configToUse);
             db = getFirestore(app);
+            storage = getStorage(app);
             auth = getAuth(app);
 
-            // Authenticate user
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     userId = user.uid;
                     console.log("Firebase authenticated. User ID:", userId);
                 } else {
-                    // Sign in anonymously if no user is logged in
                     try {
                         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                         if (initialAuthToken) {
@@ -643,27 +570,21 @@
                     }
                 }
 
-                // Set authReady to true and start listening for data
                 authReady = true;
                 setupFirestoreListeners(appIdToUse, userId);
-                renderView(); // Initial render after auth is ready
+                renderView();
             });
         }
 
-        // Setup Firestore real-time listeners
         function setupFirestoreListeners(currentAppId, currentUserId) {
-            // Collection path for user-specific exercises
             const exercisesColRef = collection(db, `artifacts/${currentAppId}/users/${currentUserId}/exercises`);
-
-            // Listen for real-time updates
             onSnapshot(exercisesColRef, (snapshot) => {
                 const updatedExercises = snapshot.docs.map(doc => ({
-                    id: doc.id, // Firestore document ID
-                    ...doc.data() // All other fields
+                    id: doc.id,
+                    ...doc.data()
                 }));
                 exercises = updatedExercises;
-                console.log("Exercises loaded/updated from Firestore:", exercises);
-                renderView(); // Re-render the current view with updated data
+                renderView();
             }, (error) => {
                 console.error("Error fetching exercises from Firestore:", error);
                 const mainContent = document.getElementById('app-main-content');
@@ -671,7 +592,13 @@
             });
         }
 
-        // Function to add exercise to Firestore
+        async function uploadAudioFileToStorage(file, folder) {
+            const fileName = `${folder.replace(/[^a-zA-Z0-9-_]/g, "_")}_${Date.now()}_${file.name}`;
+            const audioRef = storageRef(storage, `audio/${userId}/${fileName}`);
+            await uploadBytes(audioRef, file);
+            return await getDownloadURL(audioRef);
+        }
+
         async function addExerciseToFirestore(exerciseData) {
             try {
                 const exercisesColRef = collection(db, `artifacts/${appId}/users/${userId}/exercises`);
@@ -683,11 +610,21 @@
             }
         }
 
-        // Function to delete exercise from Firestore
-        async function deleteExerciseFromFirestore(exerciseId) {
+        async function deleteExerciseFromFirestore(exerciseId, audioUrl) {
             try {
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/exercises`, exerciseId);
-                await deleteDoc(docRef);
+                const docRefObj = doc(db, `artifacts/${appId}/users/${userId}/exercises`, exerciseId);
+                await deleteDoc(docRefObj);
+
+                // Delete audio from storage if exists
+                if (audioUrl) {
+                    try {
+                        const storageRefObj = storageRef(storage, audioUrl);
+                        await deleteObject(storageRefObj);
+                    } catch (err) {
+                        // If fails, just log
+                        console.warn("Không xóa được file ghi âm trong Storage:", err);
+                    }
+                }
                 return true;
             } catch (e) {
                 console.error("Error deleting document: ", e);
@@ -695,7 +632,6 @@
             }
         }
 
-        // Initial call to setup Firebase when the DOM is fully loaded
         document.addEventListener('DOMContentLoaded', setupFirebase);
     </script>
 </body>
