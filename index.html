@@ -43,7 +43,7 @@
         <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Xác nhận xóa</h3>
             <p class="text-gray-700 mb-6">
-                Bạn có chắc chắn muốn xóa bài tập ID: <span id="exercise-to-delete-id"></span> không?
+                Bạn có chắc chắn muốn xóa bài tập <span id="exercise-to-delete-id"></span> không?
             </p>
             <div class="flex justify-end space-x-4">
                 <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-300">
@@ -74,7 +74,19 @@
         let db;
         let userId = 'anonymous'; // Default to anonymous
         let authReady = false; // Flag to ensure Firestore operations wait for auth
-        let appId; // Global variable for the application ID
+
+        // IMPORTANT: REPLACE THESE WITH YOUR ACTUAL FIREBASE CONFIGURATION AND APP ID
+        // You can find your Firebase config in your Firebase project settings:
+        // Project settings -> Your apps -> Web app -> Firebase SDK snippet -> Config
+        const firebaseConfig = {
+             apiKey: "AIzaSyDTklykLRzKSkSu_1xKxuCjzVNmpzTs4M8",
+             authDomain: "listennabinguyen.firebaseapp.com",
+             projectId: "listennabinguyen",
+             storageBucket: "listennabinguyen.firebasestorage.app",
+             messagingSenderId: "607843224399",
+             appId: "1:607843224399:web:201fbfbdef5089e273933a"
+        };
+        const appId = "listennabinguyen-app"; // This is the Canvas app ID, which you can set to anything unique for your data
 
         // Helper function to convert File to Base64
         function fileToBase64(file) {
@@ -589,19 +601,20 @@
 
         // Firebase setup and data loading
         async function setupFirebase() {
-            // Get app ID from global variable or use a default
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
             // Check if Firebase config is available
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-            if (!firebaseConfig) {
-                console.error("Firebase config not found. Cannot initialize Firebase.");
+            // If running outside Canvas, use the hardcoded firebaseConfig
+            // If running inside Canvas, __firebase_config will be defined
+            const configToUse = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+            const appIdToUse = typeof __app_id !== 'undefined' ? __app_id : appId; // Use Canvas app ID if available, else hardcoded
+
+            if (!configToUse || !configToUse.projectId) {
+                console.error("Firebase config not found or incomplete. Cannot initialize Firebase.");
                 document.getElementById('app-main-content').innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi: Không thể kết nối Firebase. Vui lòng kiểm tra cấu hình.</div>';
                 return;
             }
 
             // Initialize Firebase app
-            app = initializeApp(firebaseConfig);
+            app = initializeApp(configToUse);
             db = getFirestore(app);
             auth = getAuth(app);
 
@@ -632,15 +645,15 @@
 
                 // Set authReady to true and start listening for data
                 authReady = true;
-                setupFirestoreListeners(appId, userId);
+                setupFirestoreListeners(appIdToUse, userId);
                 renderView(); // Initial render after auth is ready
             });
         }
 
         // Setup Firestore real-time listeners
-        function setupFirestoreListeners(appId, userId) {
+        function setupFirestoreListeners(currentAppId, currentUserId) {
             // Collection path for user-specific exercises
-            const exercisesColRef = collection(db, `artifacts/${appId}/users/${userId}/exercises`);
+            const exercisesColRef = collection(db, `artifacts/${currentAppId}/users/${currentUserId}/exercises`);
 
             // Listen for real-time updates
             onSnapshot(exercisesColRef, (snapshot) => {
