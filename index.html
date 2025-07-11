@@ -89,6 +89,100 @@
         };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'listennabinguyen'; // Use your projectId or a unique ID for your app on GitHub Pages
 
+        // --- Firebase Initialization and Auth ---
+        window.onload = async () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Sign in with custom token if available, otherwise anonymously
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("User signed in:", userId);
+                    } else {
+                        userId = crypto.randomUUID(); // Fallback for truly anonymous or unauthenticated
+                        console.log("No user signed in, using anonymous ID:", userId);
+                    }
+                    authReady = true; // Auth is ready, can now perform Firestore operations
+                    setupFirestoreListeners(); // Start listening to Firestore after auth is ready
+                    renderView(); // Initial render after auth
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase or signing in:", error);
+                const mainContent = document.getElementById('app-main-content');
+                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi khi tải ứng dụng. Vui lòng thử lại.</div>';
+            }
+        };
+
+        // --- Firestore Operations ---
+
+        // Function to add a new exercise to Firestore
+        async function addExerciseToFirestore(exerciseData) {
+            if (!authReady) {
+                console.error("Firestore not ready: Authentication not complete.");
+                showMessage(document.getElementById('teacher-message-area'), 'Hệ thống chưa sẵn sàng. Vui lòng thử lại sau.', 'bg-red-100 border-red-400 text-red-700');
+                return false;
+            }
+            try {
+                // Store in a public collection for all users to access
+                const exercisesCollectionRef = collection(db, `artifacts/${appId}/public/data/exercises`);
+                await addDoc(exercisesCollectionRef, exerciseData);
+                return true;
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showMessage(document.getElementById('teacher-message-area'), 'Lỗi khi thêm bài tập: ' + e.message, 'bg-red-100 border-red-400 text-red-700');
+                return false;
+            }
+        }
+
+        // Function to delete an exercise from Firestore
+        async function deleteExerciseFromFirestore(exerciseId) {
+            if (!authReady) {
+                console.error("Firestore not ready: Authentication not complete.");
+                showMessage(document.getElementById('teacher-message-area'), 'Hệ thống chưa sẵn sàng. Vui lòng thử lại sau.', 'bg-red-100 border-red-400 text-red-700');
+                return false;
+            }
+            try {
+                const docRef = doc(db, `artifacts/${appId}/public/data/exercises`, exerciseId);
+                await deleteDoc(docRef);
+                return true;
+            } catch (e) {
+                console.error("Error deleting document: ", e);
+                showMessage(document.getElementById('teacher-message-area'), 'Lỗi khi xóa bài tập: ' + e.message, 'bg-red-100 border-red-400 text-red-700');
+                return false;
+            }
+        }
+
+        // Setup real-time listener for exercises collection
+        function setupFirestoreListeners() {
+            if (!db || !authReady) {
+                console.warn("Firestore or Auth not ready for listener setup.");
+                return;
+            }
+            const exercisesCollectionRef = collection(db, `artifacts/${appId}/public/data/exercises`);
+            onSnapshot(exercisesCollectionRef, (snapshot) => {
+                const updatedExercises = [];
+                snapshot.forEach((doc) => {
+                    updatedExercises.push({ id: doc.id, ...doc.data() });
+                });
+                exercises = updatedExercises;
+                console.log("Exercises updated:", exercises);
+                renderView(); // Re-render the current view with updated data
+            }, (error) => {
+                console.error("Error listening to exercises collection:", error);
+                const mainContent = document.getElementById('app-main-content');
+                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi khi tải bài tập. Vui lòng kiểm tra kết nối.</div>';
+            });
+        }
 
         // Helper function to convert File to Base64
         function fileToBase64(file) {
@@ -181,9 +275,9 @@
                     </div>
                     <div class="mb-4">
                         <label htmlFor="audioFile" class="block text-gray-700 text-sm font-bold mb-2">
-                            Tải File Ghi Âm (.mp3, .wav, v.v.):
+                            Tải File Ghi Âm (.mp3, .wav, .mp4, .mp4a, v.v.):
                         </label>
-                        <input type="file" id="audio-file-input" accept="audio/*" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        <input type="file" id="audio-file-input" accept="audio/mpeg, audio/wav, audio/mp4, .mp4a" class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                         <p id="audio-file-name" class="mt-2 text-sm text-gray-600"></p>
                     </div>
                     <div class="mb-6">
@@ -211,14 +305,17 @@
             const exercisesListContainer = document.getElementById('exercises-list-container');
 
             let currentAudioFile = null;
+            let currentAudioMimeType = null; // To store the MIME type of the uploaded file
 
             // Handle file selection
             audioFileInput.addEventListener('change', (e) => {
                 currentAudioFile = e.target.files[0];
                 if (currentAudioFile) {
                     audioFileNameDisplay.textContent = `File đã chọn: ${currentAudioFile.name}`;
+                    currentAudioMimeType = currentAudioFile.type; // Get the MIME type
                 } else {
                     audioFileNameDisplay.textContent = '';
+                    currentAudioMimeType = null;
                 }
             });
 
@@ -242,6 +339,7 @@
                         audioContent: '', // Text content from audio is out of scope for this app
                         answerKey,
                         audioBase64: audioBase64, // Store Base64 string in Firestore
+                        audioMimeType: currentAudioMimeType // Store the MIME type
                     };
 
                     const success = await addExerciseToFirestore(newExerciseData);
@@ -251,6 +349,7 @@
                         answerKeyInput.value = '';
                         audioFileInput.value = ''; // Clear file input
                         currentAudioFile = null;
+                        currentAudioMimeType = null;
                         audioFileNameDisplay.textContent = '';
                         showMessage(messageArea, 'Bài tập đã được thêm thành công!', 'bg-blue-100 border-blue-400 text-blue-700');
                     } else {
@@ -295,7 +394,7 @@
                         li.innerHTML = `
                             <span>
                                 <!-- Removed "Bài tập ID: ${ex.id}" -->
-                                ${ex.audioBase64 ? '<p class="text-sm text-gray-500 italic">(Đã có file audio)</p>' : ''}
+                                ${ex.audioBase64 ? `<p class="text-sm text-gray-500 italic">(Đã có file audio: ${ex.audioMimeType || 'unknown'})</p>` : ''}
                             </span>
                             <div class="flex space-x-2">
                                 <button data-exercise-id="${ex.id}" class="delete-exercise-btn px-3 py-1 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 transition duration-300 text-sm" title="Xóa bài tập">
@@ -397,14 +496,14 @@
                     ${exercise.audioBase64 ? `
                         <div class="mb-4">
                             <audio controls class="w-full rounded-md">
-                                <source src="${exercise.audioBase64}" type="audio/mpeg" />
+                                <source src="${exercise.audioBase64}" type="${exercise.audioMimeType || 'audio/mpeg'}" />
                                 Trình duyệt của bạn không hỗ trợ phần tử audio.
                             </audio>
                             <p class="mt-2 text-sm text-gray-600">
                                 Đây là file ghi âm đã được giáo viên tải lên.
                             </p>
                             <p class="mt-2 text-sm text-red-500">
-                                Lưu ý: Các tệp âm thanh được lưu trữ dưới dạng văn bản (Base64) trong cơ sở dữ liệu. Điều này có thể làm tăng kích thước tài liệu và không phù hợp cho các tệp lớn.
+                                Lưu ý: Các tệp âm thanh được lưu trữ dưới dạng văn bản (Base64) trong cơ sở dữ liệu. Điều này có thể làm tăng kích thước tài liệu và KHÔNG phù hợp cho các tệp lớn. Đối với các tệp lớn, nên sử dụng Firebase Storage.
                             </p>
                         </div>
                     ` : `
@@ -597,121 +696,6 @@
                 }
             }
         });
-
-        // Firebase setup and data loading
-        async function setupFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Authenticate user
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        console.log("Firebase authenticated. User ID:", userId);
-                        authReady = true;
-                        // Start listening to Firestore data only after authentication is ready
-                        listenToExercises();
-                        renderView(); // Initial render after auth is ready
-                    } else {
-                        userId = 'anonymous'; // Fallback if somehow not authenticated
-                        console.log("Firebase not authenticated. Using anonymous ID.");
-                        authReady = true;
-                        listenToExercises(); // Still listen, but data might be restricted by rules
-                        renderView(); // Initial render after auth is ready
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error initializing Firebase or authenticating:", error);
-                const mainContent = document.getElementById('app-main-content');
-                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi tải ứng dụng. Vui lòng thử lại sau.</div>';
-            }
-        }
-
-        // Firestore functions
-        async function addExerciseToFirestore(exerciseData) {
-            if (!authReady) {
-                console.error("Firestore not ready: Authentication not complete.");
-                return false;
-            }
-
-            const messageArea = document.getElementById('teacher-message-area');
-
-            // Check Base64 string size before attempting to save
-            const MAX_BASE64_SIZE = 900 * 1024; // Approximately 0.9 MB for the Base64 string to stay within 1MB document limit
-            if (exerciseData.audioBase64 && exerciseData.audioBase64.length > MAX_BASE64_SIZE) {
-                showMessage(messageArea, 'Kích thước file âm thanh quá lớn. Vui lòng tải lên file nhỏ hơn (dưới 0.7MB).', 'bg-red-100 border-red-400 text-red-700');
-                console.error("Audio file Base64 string too large:", exerciseData.audioBase64.length, "bytes. Max allowed:", MAX_BASE64_SIZE, "bytes.");
-                return false;
-            }
-
-            try {
-                // Store in public collection
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/exercises`), exerciseData);
-                console.log("Document written with ID: ", docRef.id);
-                return true;
-            } catch (e) {
-                console.error("Error adding document to Firestore: ", e);
-                // Check for specific Firestore errors related to size if possible, though general catch is often enough
-                if (e.code === 'resource-exhausted') { // This specific error code might not be directly exposed for document size
-                    showMessage(messageArea, 'Lỗi: Kích thước bài tập quá lớn. Vui lòng giảm kích thước file âm thanh hoặc nội dung đáp án.', 'bg-red-100 border-red-400 text-red-700');
-                } else {
-                    showMessage(messageArea, `Lỗi khi thêm bài tập: ${e.message}. Vui lòng thử lại.`, 'bg-red-100 border-red-400 text-red-700');
-                }
-                return false;
-            }
-        }
-
-        async function deleteExerciseFromFirestore(exerciseId) {
-            if (!authReady) {
-                console.error("Firestore not ready: Authentication not complete.");
-                return false;
-            }
-            const messageArea = document.getElementById('teacher-message-area');
-            try {
-                // Delete from public collection
-                await deleteDoc(doc(db, `artifacts/${appId}/public/data/exercises`, exerciseId));
-                console.log("Document successfully deleted!");
-                return true;
-            } catch (e) {
-                console.error("Error removing document: ", e);
-                showMessage(messageArea, `Lỗi khi xóa bài tập: ${e.message}. Vui lòng thử lại.`, 'bg-red-100 border-red-400 text-red-700');
-                return false;
-            }
-        }
-
-        function listenToExercises() {
-            if (!authReady) {
-                console.error("Firestore not ready: Cannot listen to exercises.");
-                return;
-            }
-            // Listen to public exercises collection
-            onSnapshot(collection(db, `artifacts/${appId}/public/data/exercises`), (snapshot) => {
-                const fetchedExercises = [];
-                snapshot.forEach((doc) => {
-                    fetchedExercises.push({ id: doc.id, ...doc.data() });
-                });
-                exercises = fetchedExercises;
-                console.log("Exercises updated:", exercises);
-                // Re-render the current view to reflect updated data
-                renderView();
-            }, (error) => {
-                console.error("Error listening to exercises:", error);
-                const mainContent = document.getElementById('app-main-content');
-                mainContent.innerHTML = '<div class="text-center text-red-600 text-xl mt-10">Lỗi tải bài tập. Vui lòng kiểm tra kết nối internet.</div>';
-            });
-        }
-
-        // Initialize Firebase when the window loads
-        window.onload = setupFirebase;
     </script>
 </body>
 </html>
